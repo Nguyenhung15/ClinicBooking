@@ -1,10 +1,24 @@
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Set WEB_ORIGIN and API_PUBLIC_URL in a root .env for real deployments.
 services:
-  app:
+  backend:
     build:
       target: production
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost}
+    volumes: !reset []
+
+  web:
+    build:
+      target: production
+      args:
+        VITE_API_URL: ${API_PUBLIC_URL:-http://localhost:3000/api}
+    restart: unless-stopped
+    ports: !override
+      - "80:80"
+    environment: !reset {}
     volumes: !reset []
 
   mongodb:
