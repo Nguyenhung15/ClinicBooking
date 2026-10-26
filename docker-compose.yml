@@ -1,27 +1,34 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      target: development
     container_name: clinic_booking_app
-    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
-      - PORT=3000
-      - MONGO_URI=mongodb://mongodb:27017/clinic_booking
+      NODE_ENV: development
+      PORT: 3000
+      MONGO_URI: mongodb://mongodb:27017/clinic_booking
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
 
   mongodb:
     image: mongo:7.0
     container_name: clinic_booking_mongodb
-    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mongo_data:

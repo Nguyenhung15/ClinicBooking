@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      target: production
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    volumes: !reset []
+
+  mongodb:
+    restart: unless-stopped
+    ports: !reset []
