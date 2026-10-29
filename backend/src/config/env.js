@@ -1,3 +1,4 @@
+const path = require('path');
 require('dotenv').config();
 
 const env = {
@@ -9,6 +10,10 @@ const env = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
+  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, ''),
+  jwtSecret: process.env.JWT_SECRET || 'clinic_booking_dev_secret_key_sdn302',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'),
 };
 
 env.isProduction = env.nodeEnv === 'production';

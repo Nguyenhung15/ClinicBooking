@@ -7,18 +7,26 @@ const { notFound, errorHandler } = require('./middlewares/error.middleware');
 const app = express();
 
 // Native mobile apps send no Origin header, so requests without one are allowed.
+// `credentials: true` is required because Frontend OAuth2/logout uses `credentials: 'include'`.
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || env.corsOrigins.includes(origin)) return callback(null, true);
       return callback(new Error(`Origin not allowed by CORS: ${origin}`));
     },
+    credentials: true,
   }),
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.text({ type: 'text/plain' }));
 
-app.get('/', (req, res) => {
+// Static uploaded files (mounted at both `/uploads` and `/images/file/uploads` per `web/src/api/image.ts`)
+app.use('/uploads', express.static(env.uploadsDir));
+app.use('/images/file/uploads', express.static(env.uploadsDir));
+
+app.get('/', (_req, res) => {
   res.json({ message: 'Welcome to Clinic Booking API' });
 });
 
