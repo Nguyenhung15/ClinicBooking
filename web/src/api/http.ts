@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const base: string = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
+export const base: string = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
 
 // Debug: Log base URL để kiểm tra
 console.log('API Base URL:', base);

@@ -3,13 +3,13 @@ import { http } from "./http";
 
 /** ===== Types ===== */
 export type Prescription = {
-  id: number;
+  id: number | string;
   medicineName?: string | null;
   dosage?: string | null;
   duration?: string | null;
   instructions?: string | null;
   createdAt?: string;
-  appointmentId?: number;
+  appointmentId?: number | string;
 };
 
 export type CreatePrescriptionPayload = {
@@ -34,18 +34,18 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const normalizePrescription = (raw: unknown): Prescription => {
   const record = isRecord(raw) ? raw : {};
   const appointment = isRecord(record.appointment) ? record.appointment : undefined;
+  const rawId = record.id;
+  const rawAppointmentId = record.appointmentId ?? appointment?.id;
   return {
-    id: Number(record.id ?? 0),
+    id: typeof rawId === "number" || typeof rawId === "string" ? rawId : 0,
     medicineName: typeof record.medicineName === "string" ? record.medicineName : null,
     dosage: typeof record.dosage === "string" ? record.dosage : null,
     duration: typeof record.duration === "string" ? record.duration : null,
     instructions: typeof record.instructions === "string" ? record.instructions : null,
     createdAt: typeof record.createdAt === "string" ? record.createdAt : undefined,
     appointmentId:
-      typeof record.appointmentId === "number"
-        ? record.appointmentId
-        : appointment && typeof appointment.id === "number"
-        ? (appointment.id as number)
+      typeof rawAppointmentId === "number" || typeof rawAppointmentId === "string"
+        ? rawAppointmentId
         : undefined,
   };
 };

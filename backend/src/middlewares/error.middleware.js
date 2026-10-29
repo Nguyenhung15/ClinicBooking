@@ -27,17 +27,19 @@ const errorHandler = (err, _req, res, _next) => {
     const details = Object.values(err.errors || {}).map((e) => e.message);
     message = details.length ? details.join('; ') : 'Dữ liệu đầu vào không hợp lệ';
   } else if (err instanceof multer.MulterError) {
-    statusCode = 400;
+    statusCode = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
     message =
       err.code === 'LIMIT_FILE_SIZE'
-        ? 'Kích thước file vượt quá giới hạn 5MB'
+        ? 'Kích thước file vượt quá giới hạn cho phép'
         : `Lỗi tải file: ${err.message}`;
+  } else if (err.name === 'CastError') {
+    statusCode = 400;
+    message = 'Invalid identifier';
   }
 
   if (statusCode >= 500 && env.nodeEnv !== 'test') {
     console.error(err);
   }
-
   res.status(statusCode).json({
     success: false,
     message,
