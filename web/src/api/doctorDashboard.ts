@@ -19,7 +19,8 @@ export interface TodayScheduleItem {
 // Lấy thống kê tổng quan
 export async function getDoctorDashboardStats(): Promise<DoctorDashboardStats> {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     // Lấy tất cả appointments của doctor
     const appointmentsRes = await http.get('/appointments/status/ALL');
@@ -60,7 +61,8 @@ export async function getDoctorDashboardStats(): Promise<DoctorDashboardStats> {
 // Lấy lịch khám hôm nay
 export async function getTodaySchedule(): Promise<TodayScheduleItem[]> {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const res = await http.get(`/appointments/status/ALL?date=${today}`);
     const appointments = res.data?.data || res.data || [];
     

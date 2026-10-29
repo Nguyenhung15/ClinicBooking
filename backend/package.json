@@ -10,6 +10,8 @@
     "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build",
     "docker:down": "docker compose down",
     "seed": "node src/seed/seed.js",
+    "import:doctor-data": "node scripts/import-doctors-from-dump.js",
+    "import:doctors": "node scripts/import-doctors-from-dump.js",
     "test": "NODE_ENV=test node --test tests/*.test.js"
   },
   "repository": {

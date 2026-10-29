@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, Form, Spinner } from "react-bootstrap";
+import type { FormEvent } from "react";
+import { Button, Card, Form, Modal, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { fetchMyShifts, type DoctorShift } from "../../api/shift";
+import {
+  createShiftCancellationRequest,
+  fetchMyShiftCancellationRequests,
+  fetchMyShifts,
+  type DoctorShift,
+  type ShiftCancellationRequest,
+} from "../../api/shift";
 import { http } from "../../api/http";
 import "../../styles/shift.css";
 
@@ -53,6 +60,11 @@ export default function DoctorShifts() {
   const [error, setError] = useState("");
   const [allItems, setAllItems] = useState<DoctorShift[]>([]);
   const [shiftIdToApps, setShiftIdToApps] = useState<Record<string, AppointmentItem[]>>({});
+  const [cancellationRequests, setCancellationRequests] = useState<ShiftCancellationRequest[]>([]);
+  const [cancellationTarget, setCancellationTarget] = useState<DoctorShift | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationError, setCancellationError] = useState("");
+  const [submittingCancellation, setSubmittingCancellation] = useState(false);
 
   // Filter theo tuần: dùng 1 ngày mốc thuộc tuần đó
   const [dateStr, setDateStr] = useState<string>(toISO(new Date()));
@@ -65,7 +77,41 @@ export default function DoctorShifts() {
       .then(setAllItems)
       .catch((e) => setError(String(e?.message || e)))
       .finally(() => setLoading(false));
+    fetchMyShiftCancellationRequests()
+      .then(setCancellationRequests)
+      .catch((e) => setError(String(e?.message || e)));
   }, []);
+
+  const latestCancellationByShift = useMemo(() => {
+    const requests: Record<string, ShiftCancellationRequest> = {};
+    for (const request of cancellationRequests) {
+      if (!requests[String(request.shiftId)]) requests[String(request.shiftId)] = request;
+    }
+    return requests;
+  }, [cancellationRequests]);
+
+  const submitCancellationRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!cancellationTarget) return;
+    const reason = cancellationReason.trim();
+    if (!reason) {
+      setCancellationError("Please enter a reason for cancellation.");
+      return;
+    }
+
+    setSubmittingCancellation(true);
+    setCancellationError("");
+    try {
+      const request = await createShiftCancellationRequest(cancellationTarget.id, reason);
+      setCancellationRequests((current) => [request, ...current]);
+      setCancellationTarget(null);
+      setCancellationReason("");
+    } catch (e: unknown) {
+      setCancellationError(e instanceof Error ? e.message : "Could not submit cancellation request.");
+    } finally {
+      setSubmittingCancellation(false);
+    }
+  };
 
   // Tính header 7 ngày (Thứ 2 → CN)
   const baseDate = useMemo(() => new Date(dateStr), [dateStr]);
@@ -289,7 +335,15 @@ export default function DoctorShifts() {
                       <td key={h.iso} className="cell">
                         {it ? (
                           <div className="cell-inner">
-                            <ShiftChip shift={it} appointments={apps} />
+                            <ShiftChip
+                              shift={it}
+                              appointments={apps}
+                              cancellationRequest={latestCancellationByShift[String(it.id)]}
+                              onRequestCancellation={() => {
+                                setCancellationError("");
+                                setCancellationTarget(it);
+                              }}
+                            />
                           </div>
                         ) : (
                           <span className="cell-empty">—</span>
@@ -303,12 +357,59 @@ export default function DoctorShifts() {
           </table>
         </div>
       )}
+
+      <Modal show={!!cancellationTarget} onHide={() => !submittingCancellation && setCancellationTarget(null)} centered>
+        <Form onSubmit={submitCancellationRequest}>
+          <Modal.Header closeButton>
+            <Modal.Title>Request shift cancellation</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {cancellationTarget && (
+              <p className="text-muted">
+                {cancellationTarget.date} · {cancellationTarget.shift}
+              </p>
+            )}
+            <Form.Group controlId="shift-cancellation-reason">
+              <Form.Label>Reason</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={4}
+                maxLength={500}
+                required
+                value={cancellationReason}
+                onChange={(event) => setCancellationReason(event.target.value)}
+                placeholder="Explain why you need to cancel this shift"
+              />
+              <Form.Text className="text-muted">{cancellationReason.length}/500</Form.Text>
+            </Form.Group>
+            {cancellationError && <div className="text-danger mt-3">{cancellationError}</div>}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="outline-secondary" onClick={() => setCancellationTarget(null)} disabled={submittingCancellation}>
+              Close
+            </Button>
+            <Button type="submit" variant="danger" disabled={submittingCancellation || !cancellationReason.trim()}>
+              {submittingCancellation ? "Submitting…" : "Submit request"}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </div>
   );
 }
 
 /** ====== Small atom ====== */
-function ShiftChip({ shift, appointments }: { shift: DoctorShift; appointments: AppointmentItem[] }) {
+function ShiftChip({
+  shift,
+  appointments,
+  cancellationRequest,
+  onRequestCancellation,
+}: {
+  shift: DoctorShift;
+  appointments: AppointmentItem[];
+  cancellationRequest?: ShiftCancellationRequest;
+  onRequestCancellation: () => void;
+}) {
   return (
     <div className="shift-chip">
       <div className="shift-chip-header">
@@ -331,6 +432,24 @@ function ShiftChip({ shift, appointments }: { shift: DoctorShift; appointments: 
           <span className="cell-placeholder">Chưa có lịch hẹn</span>
         )}
       </div>
+      {cancellationRequest?.status === "PENDING" ? (
+        <div className="small text-warning-emphasis mt-2">Cancellation request pending review</div>
+      ) : cancellationRequest?.status === "APPROVED" ? (
+        <div className="small text-success mt-2">Cancellation request approved</div>
+      ) : (
+        <>
+          {cancellationRequest?.status === "REJECTED" && (
+            <div className="small text-muted mt-2">
+              Request rejected{cancellationRequest.decisionNote ? `: ${cancellationRequest.decisionNote}` : ""}
+            </div>
+          )}
+          {shift.status === "ACTIVE" && (
+            <Button size="sm" variant="outline-danger" className="mt-2" onClick={onRequestCancellation}>
+              Request cancellation
+            </Button>
+          )}
+        </>
+      )}
     </div>
   );
 }

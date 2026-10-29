@@ -3,7 +3,7 @@ import { http } from "./http";
 export type ShiftType = "MORNING" | "AFTERNOON" | "EVENING";
 
 export type DoctorShiftSlot = {
-  id: number;
+  id: number | string;
   startTime: string;
   endTime: string;
   status: string;
@@ -12,14 +12,15 @@ export type DoctorShiftSlot = {
 };
 
 export type DoctorShift = {
-  id: number;
+  id: number | string;
   date: string; // ISO yyyy-mm-dd
   shift: ShiftType;
   startTime?: string;
   endTime?: string;
   maxPatients?: number;
   note?: string;
-  doctorId?: number;
+  status?: string;
+  doctorId?: number | string;
   doctorName?: string;
   availableSlots?: number;
   shiftType?: ShiftType | string;
@@ -49,6 +50,19 @@ export type CreateShiftPayload = {
   repeatCount?: number; // 0..3
 };
 
+export type ShiftCancellationRequest = {
+  id: string;
+  shiftId: string;
+  shiftDate: string;
+  shift: ShiftType;
+  reason: string;
+  affectedAppointmentCount: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  decisionNote?: string;
+  requestedAt?: string;
+  decidedAt?: string;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -69,8 +83,15 @@ function pickObject<T>(data: unknown): T {
   return data as T;
 }
 
-export async function fetchMyShifts(week?: "current" | "next"): Promise<DoctorShift[]> {
-  const qs = week ? `?week=${encodeURIComponent(week)}` : "";
+export async function fetchMyShifts(
+  week?: "current" | "next",
+  date?: string,
+): Promise<DoctorShift[]> {
+  const params = new URLSearchParams();
+  if (week) params.set("week", week);
+  if (date) params.set("date", date);
+  const query = params.toString();
+  const qs = query ? `?${query}` : "";
   const res = await http.get(`/shifts/my${qs}`);
   return pickArray<DoctorShift>(res.data);
 }
@@ -78,6 +99,19 @@ export async function fetchMyShifts(week?: "current" | "next"): Promise<DoctorSh
 export async function createShift(payload: CreateShiftPayload): Promise<number | DoctorShift> {
   const res = await http.post(`/shifts/create`, payload);
   return pickObject(res.data);
+}
+
+export async function fetchMyShiftCancellationRequests(): Promise<ShiftCancellationRequest[]> {
+  const res = await http.get("/shifts/cancellation-requests/my");
+  return pickArray<ShiftCancellationRequest>(res.data);
+}
+
+export async function createShiftCancellationRequest(
+  shiftId: number | string,
+  reason: string,
+): Promise<ShiftCancellationRequest> {
+  const res = await http.post(`/shifts/${encodeURIComponent(shiftId)}/cancellation-requests`, { reason });
+  return pickObject<ShiftCancellationRequest>(res.data);
 }
 
 export async function fetchShiftsInWeek(startISO: string, endISO: string): Promise<AdminShift[]> {

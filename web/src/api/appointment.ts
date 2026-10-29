@@ -188,10 +188,6 @@ export async function fetchDetail(id: number): Promise<ActionResponse<Appointmen
     const payload = extractData(res.data);
     const normalized = normalizeAppointment(payload);
     
-    // Debug: Log raw response để kiểm tra
-    console.log("Raw appointment detail response:", payload);
-    console.log("Normalized appointment:", normalized);
-    
     return { ok: true, data: normalized };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch detail";
@@ -304,7 +300,7 @@ export async function rescheduleAppointment(
 }
 
 export async function fetchByShift(
-  shiftId: number
+  shiftId: number | string
 ): Promise<ActionResponse<Appointment[]>> {
   try {
     const res = await http.get(`/appointments/by-shift/${shiftId}`);
@@ -318,7 +314,7 @@ export async function fetchByShift(
 }
 
 export async function fetchByShifts(
-  shiftIds: number[]
+  shiftIds: Array<number | string>
 ): Promise<ActionResponse<Appointment[]>> {
   try {
     const results = await Promise.all(shiftIds.map((id) => fetchByShift(id)));
@@ -340,12 +336,8 @@ export async function startAppointment(
   id: number
 ): Promise<ActionResponse<Appointment>> {
   try {
-    await http.put(`/appointments/start/${id}`);
-    const detailRes = await fetchDetail(id);
-    if (detailRes.ok && detailRes.data) {
-      return { ok: true, data: detailRes.data };
-    }
-    return { ok: true };
+    const res = await http.put(`/appointments/start/${id}`);
+    return { ok: true, data: normalizeAppointment(extractData(res.data)) };
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Failed to start appointment";

@@ -18,7 +18,6 @@ import {
   paginate,
   type Appointment,
   fetchByShifts,
-  fetchDetail,
   startAppointment as apiStartAppointment,
   completeAppointment as apiCompleteAppointment,
 } from "../../api/appointment";
@@ -28,7 +27,7 @@ import AppointmentStatus from "../../components/appointment/AppointmentStatus";
 import type { UiStatus } from "../../components/appointment/AppointmentStatus";
 import { normStatus, STATUS_OPTIONS, statusLabel, statusTone } from "../../components/appointment/AppointmentStatus";
 
-import { fetchMyShifts, fetchShiftsByDoctorAndDate, type DoctorShift } from "../../api/shift";
+import { fetchMyShifts, type DoctorShift } from "../../api/shift";
 import "../../styles/appointmentlist.css";
 import Paging from "../../components/common/Paging";
 
@@ -56,25 +55,11 @@ export default function DoctorAppointment() {
   const [page, setPage] = useState<number>(1);
   const pageSize = 10;
 
-  // Doctor id (lấy từ localStorage user)
-  const doctorId = useMemo(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem("user") || "{}");
-      return u?.id;
-    } catch {
-      return undefined;
-    }
-  }, []);
-
   /* ---- Load shifts theo ngày ---- */
   useEffect(() => {
     (async () => {
       try {
-        // Prefer using doctorId if available (for admin viewing doctor's appointments)
-        // Otherwise use fetchMyShifts which uses authenticated doctor from token
-        const list = doctorId
-          ? await fetchShiftsByDoctorAndDate(doctorId, date)
-          : await fetchMyShifts();
+        const list = await fetchMyShifts(undefined, date);
         setShifts(list || []);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "Failed to load shifts";
@@ -82,7 +67,7 @@ export default function DoctorAppointment() {
         setShifts([]);
       }
     })();
-  }, [doctorId, date]);
+  }, [date]);
 
   /* ---- Load appointments theo shifts trong ngày ---- */
   useEffect(() => {
@@ -152,15 +137,12 @@ export default function DoctorAppointment() {
     try {
       const res = await apiStartAppointment(id);
       if (res.ok) {
-        await reloadAfterAction();
-        // Reload appointment để có status mới nhất
-        if (viewItem) {
-          const detailRes = await fetchDetail(id);
-          if (detailRes.ok && detailRes.data) {
-            setViewItem(detailRes.data);
-          }
-          setAddedPrescription(false); // Reset prescription flag
+        if (res.data) {
+          setViewItem(res.data);
+          setAppointments((current) => current.map((item) => item.id === id ? res.data! : item));
         }
+        await reloadAfterAction();
+        setAddedPrescription(false);
       } else {
         setError(res.error || "Failed to start appointment");
       }
