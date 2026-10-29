@@ -1,0 +1,376 @@
+/* ========== PUBLIC HEADER WRAPPER (LOGIN TOGGLE ANIMATION) ========== */
+.public-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-layout.on-login-page {
+  background: #050505;
+}
+
+body.on-login-page {
+  background: #050505 !important;
+}
+
+body.lamp-off .header,
+body.lamp-off .public-header-wrapper {
+  display: none !important;
+}
+
+@keyframes headerSlideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.public-header-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+}
+
+.public-layout.on-login-page .public-header-wrapper.header-visible {
+  animation: headerSlideDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ========== HEADER ========== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 80px;
+  background: linear-gradient(
+    90deg,
+    var(--header-grad-from, #2D7EC8) 0%,
+    var(--header-grad-to, #B3E6F9) 100%
+  );
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ========== LAYOUT ========== */
+.header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  height: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  padding: 0 24px;
+}
+
+/* ========== LOGO ========== */
+.logo-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: left;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.logo-box img {
+  width: 56px;
+  height: 56px;
+  display: block;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: transparent;
+}
+
+/* ========== NAV (DESKTOP) ========== */
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+  position: relative;
+}
+
+/* Link thường (NavLink) */
+.navlink {
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  opacity: 0.92;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+.navlink:hover,
+.navlink.active {
+  opacity: 1;
+  text-decoration: none;
+}
+
+/* Nút dropdown của react-bootstrap trong nav */
+.nav .dropdown-toggle,
+.nav .dropdown-toggle:hover,
+.nav .dropdown-toggle:focus,
+.nav .dropdown-toggle:active,
+.nav .dropdown-toggle.show {
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  opacity: 0.92;
+  padding: 0;
+}
+.nav .dropdown-toggle:hover,
+.nav .dropdown-toggle.show {
+  opacity: 1;
+}
+
+/* ========== LOGIN CTA (DESKTOP) ========== */
+.login-wrap {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+.btn {
+  text-decoration: none !important;
+}
+.btn.login {
+  background: var(--header-pill, #0D3B57);
+  color: #fff;
+  padding: 9px 18px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, filter 0.15s ease, background 0.15s ease;
+}
+.btn.login:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+.btn.login.login--ghost {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 9px 18px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+.btn.login.login--ghost:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+/* ========== DROPDOWN (react-bootstrap) ========== */
+.dropdown-menu {
+  min-width: 220px;
+  background: rgba(13, 59, 87, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 8px 0;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+.dropdown-menu.show {
+  display: block;
+}
+.dropdown-item {
+  padding: 10px 16px;
+  color: #f1f5f9;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 0.18s ease, padding-left 0.18s ease;
+}
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  padding-left: 20px;
+}
+
+/* ========== HAMBURGER BUTTON (MOBILE) ========== */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+.hamburger:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.hamburger span {
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  background: #ffffff;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  transform-origin: center;
+}
+.hamburger--open span:nth-child(1) {
+  transform: translateY(7.5px) rotate(45deg);
+}
+.hamburger--open span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+.hamburger--open span:nth-child(3) {
+  transform: translateY(-7.5px) rotate(-45deg);
+}
+
+/* ========== MOBILE MENU DRAWER ========== */
+.mobile-menu {
+  display: none;
+  position: absolute;
+  top: 80px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, #1d6199 0%, #114269 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 18px 20px 24px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.mobile-menu--open {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-nav .navlink {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 16px;
+  transition: background 0.15s ease;
+}
+.mobile-nav .navlink:hover,
+.mobile-nav .navlink.active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Mobile dropdown details */
+.mobile-details {
+  border-radius: 10px;
+}
+.mobile-summary {
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mobile-summary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.mobile-summary::-webkit-details-marker {
+  display: none;
+}
+.mobile-summary::after {
+  content: '›';
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+details[open] .mobile-summary::after {
+  transform: rotate(90deg);
+}
+.mobile-sub {
+  padding: 6px 0 6px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-sub-link {
+  color: #e0f2fe;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mobile-sub-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  text-decoration: none;
+}
+.mobile-sub-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Mobile CTA buttons */
+.mobile-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.mobile-cta-btn {
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+  padding: 12px 18px;
+  font-size: 15px;
+}
+.mobile-user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 960px) {
+  .nav {
+    gap: 20px;
+  }
+}
+@media (max-width: 768px) {
+  .header-inner {
+    grid-template-columns: auto 1fr auto;
+  }
+  .nav--desktop {
+    display: none !important;
+  }
+  .login-wrap--desktop {
+    display: none !important;
+  }
+  .hamburger {
+    display: flex;
+    justify-self: end;
+  }
+}

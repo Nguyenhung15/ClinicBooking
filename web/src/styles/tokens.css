@@ -1,0 +1,48 @@
+:root{
+  /* Brand */
+  --brand: #1c7ed6;
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-600: #1b6fcc;
+  --brand-700: #1d4ed8;
+
+  /* Surface / Background */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --panel: #ffffff;
+
+  /* Text colors */
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --muted: #64748b;
+
+  /* Border / Divider */
+  --line: #e2e8f0;
+  --border-subtle: #f1f5f9;
+
+  /* Status */
+  --success: #22c55e;
+  --danger: #ef4444;
+
+  /* Radius & Shadows */
+  --radius: 14px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow: 0 4px 16px rgba(0,0,0,.08);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.10);
+  --shadow-lg: 0 20px 45px rgba(0,0,0,.14);
+
+  /* Header */
+  --header-grad-from: #2D7EC8;
+  --header-grad-to: #B3E6F9;
+  --header-pill: #0D3B57;
+
+  /* Quick Action Banner */
+  --qa-primary: #2f6fff;
+  --qa-primary-ink: #ffffff;
+  --qa-outline-bg: #ADDFF6;
+  --qa-outline-ink: #ffffff;
+  --qa-border: rgba(255,255,255,.65);
+  --qa-shadow: 0 10px 30px rgba(0,0,0,.18);
+}

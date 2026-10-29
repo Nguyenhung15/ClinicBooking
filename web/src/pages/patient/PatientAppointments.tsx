@@ -1,0 +1,222 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Spinner } from "react-bootstrap";
+import { Link } from "react-router-dom";
+import { statusLabel, type UiStatus } from "../../components/appointment/AppointmentStatus";
+import { fetchMyUpcomingAppointments, type Appointment } from "../../api/appointment";
+
+type GroupedAppointments = Record<UiStatus, Appointment[]>;
+type ChipTone = "blue" | "green" | "purple" | "red";
+
+const statusOrder: UiStatus[] = ["PENDING_CONFIRM", "CONFIRMED", "CHECK_IN"];
+
+const STATUS_META: Partial<
+  Record<
+    UiStatus,
+    {
+      title: string;
+      description?: string;
+      tone: ChipTone;
+      badge?: string;
+      defaultReason?: string;
+    }
+  >
+> = {
+  PENDING_CONFIRM: {
+    title: "Chờ xác nhận",
+    description: "Lịch hẹn đang đợi phòng khám phê duyệt.",
+    tone: "blue",
+    badge: "Pending confirmation",
+    defaultReason: "Khám định kỳ",
+  },
+  CONFIRMED: {
+    title: "Đã xác nhận",
+    description: "Phòng khám đã xác nhận thời gian khám.",
+    tone: "green",
+    badge: "Confirmed",
+    defaultReason: "Lịch khám đã xác nhận",
+  },
+  CHECK_IN: {
+    title: "Đã check-in",
+    description: "Bạn đã xác nhận có mặt tại phòng khám.",
+    tone: "purple",
+    badge: "Checked in",
+    defaultReason: "Đang chờ khám",
+  },
+};
+
+export default function PatientAppointments() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetchMyUpcomingAppointments();
+      if (res.ok && res.data) {
+        setAppointments(res.data);
+        setError(null);
+      } else {
+        setError(res.error || "Không thể tải danh sách lịch hẹn");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể tải danh sách lịch hẹn";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAppointments();
+  }, [loadAppointments]);
+
+  const grouped: GroupedAppointments = useMemo(() => {
+    return appointments.reduce<GroupedAppointments>((acc, item) => {
+      const key = item.status;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {} as GroupedAppointments);
+  }, [appointments]);
+
+  const formatStatusInfo = (status: UiStatus) => {
+    const meta = STATUS_META[status];
+    if (meta) {
+      return {
+        title: meta.title,
+        description: meta.description,
+        tone: meta.tone,
+        badge: meta.badge ?? statusLabel[status],
+        defaultReason: meta.defaultReason,
+      };
+    }
+    return {
+      title: statusLabel[status],
+      description: undefined,
+      tone: "blue" as ChipTone,
+      badge: statusLabel[status],
+      defaultReason: undefined,
+    };
+  };
+
+  const getPatientsLabel = (appointment: Appointment) => {
+    if (appointment.patients?.length) {
+      return appointment.patients.map((p) => p.fullName || "").filter(Boolean).join(", ");
+    }
+    return appointment.patientName || "—";
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    try {
+      return new Date(value).toLocaleDateString("vi-VN");
+    } catch (err) {
+      return value;
+    }
+  };
+
+  const formatTime = (value?: string) => {
+    if (!value) return "—";
+    if (value.length > 5) return value.slice(0, 5);
+    return value;
+  };
+
+  return (
+    <div className="patient-page">
+      <header className="patient-header">
+        <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <h1>Lịch hẹn của tôi</h1>
+            <p>Theo dõi các cuộc hẹn sắp tới và chuẩn bị cho buổi khám.</p>
+          </div>
+          <Link to="/appointment" className="btn btn-primary">
+            Đặt lịch khám mới
+          </Link>
+        </div>
+        {error && !loading && (
+          <Alert variant="danger" className="mt-3" onClose={() => setError(null)} dismissible>
+            {error}
+          </Alert>
+        )}
+      </header>
+
+      <section className="patient-body">
+        {loading ? (
+          <div className="patient-card">
+            <div className="patient-loading">
+              <Spinner animation="border" size="sm" />
+              Đang tải lịch hẹn...
+            </div>
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="patient-card">
+            <div className="patient-placeholder">
+              <strong>Chưa có lịch hẹn nào.</strong>
+              Bạn có thể đặt lịch khám mới để bắt đầu quản lý lịch trình.
+            </div>
+          </div>
+        ) : (
+          statusOrder.map((status) => {
+            const list = grouped[status] ?? [];
+            if (!list.length) return null;
+            const info = formatStatusInfo(status);
+            return (
+              <div key={status} className="patient-card">
+                <div className="patient-card__header">
+                  <div>
+                    <h2 className="patient-card__title mb-0">{info.title}</h2>
+                    {info.description && <p className="patient-card__subtitle">{info.description}</p>}
+                  </div>
+                  <div className={`patient-status-chip tone-${info.tone}`}>
+                    <span className="patient-status-chip__dot" />
+                    {info.badge}
+                  </div>
+                </div>
+                <div className="patient-appointment-list">
+                  {list.map((item) => (
+                    <div key={item.id} className="patient-appointment-item">
+                      <div className="d-flex justify-content-between align-items-start mb-2">
+                        <div className="patient-appointment-title">
+                          {item.reason?.trim() || info.defaultReason || "Khám định kỳ"}
+                        </div>
+                        {item.type && (
+                          <span className={`badge ${item.type === "ONLINE" ? "bg-info" : "bg-secondary"}`}>
+                            {item.type === "ONLINE" ? "Online" : "Offline"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="patient-appointment-grid">
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Ngày</span>
+                          <span className="patient-appointment-value">{formatDate(item.appointmentDate)}</span>
+                        </div>
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Giờ</span>
+                          <span className="patient-appointment-value">{formatTime(item.appointmentTime)}</span>
+                        </div>
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Bác sĩ</span>
+                          <span className="patient-appointment-value">{item.doctorName || "—"}</span>
+                        </div>
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Bệnh nhân</span>
+                          <span className="patient-appointment-value">{getPatientsLabel(item)}</span>
+                        </div>
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Chuyên khoa</span>
+                          <span className="patient-appointment-value">{item.specialtyName || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+    </div>
+  );
+}
+

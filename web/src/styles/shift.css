@@ -1,0 +1,250 @@
+/* ====== Wrap & Layout ====== */
+.shift-wrap {
+  background: #fff;
+  border: 1px solid #F0F0F0;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.shift-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.shift-filterbar .left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.shift-filterbar .title {
+  margin: 0;
+}
+.shift-filterbar .week-range {
+  color: #7F7F7F;
+  font-size: 14px;
+}
+
+.shift-filterbar .right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shift-filterbar .week-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shift-filterbar .btn-nav {
+  border: 1px solid #F0F0F0;
+}
+.shift-filterbar .date-input {
+  width: 165px;
+}
+.shift-filterbar .btn-register {
+  background: #168BD9;
+  border-color: #168BD9;
+  color: #fff;
+  border-radius: 10px;
+}
+
+/* ====== Table ====== */
+.shift-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+.shift-table thead th {
+  background: #F9F9FB;
+  white-space: nowrap;
+}
+.col-shift {
+  width: 100px;
+  min-width: 100px;
+}
+.col-day {
+  min-width: 80px;
+}
+.col-doctor{
+  width: 200px;
+}
+.col-spec{
+  width: 200px;
+}
+
+.shift-table .cell {
+  vertical-align: top;
+  padding: 8px;
+  height: 140px; /* đủ cao để thấy nhiều ticket */
+}
+
+.shift-table .cell .cell-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shift-table .cell .cell-empty {
+  color: #999;
+  font-size: 12px;
+}
+
+.shift-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(22, 139, 217, 0.2);
+  background: rgba(22, 139, 217, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 100%;
+}
+
+.shift-chip-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shift-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f6cab;
+  background: rgba(22, 139, 217, 0.18);
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.shift-chip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #425466;
+}
+
+.shift-chip-time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.shift-chip-capacity {
+  background: rgba(15, 108, 171, 0.08);
+  padding: 0 6px;
+  border-radius: 6px;
+}
+
+.shift-chip-note {
+  font-size: 12px;
+  color: #334155;
+  background: rgba(51, 65, 85, 0.08);
+  border-radius: 6px;
+  padding: 2px 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.shift-chip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shift-chip .cell-placeholder {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ====== Appointment chip (color by status) ====== */
+.appt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #F0F0F0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #fff;
+}
+.appt .appt-left {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.appt .time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.appt .patient {
+  color: #1B1B1B;
+}
+.appt .status {
+  text-transform: uppercase;
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* Status tones — map theo các trạng thái UI dùng thường gặp */
+.appt-pending-confirm,
+.appt-report-pending {
+  border-color: rgba(22, 139, 217, 0.3);
+  background: rgba(22, 139, 217, 0.1);
+}
+
+.appt-confirmed {
+  border-color: rgba(22, 139, 217, 0.3);
+  background: rgba(22, 139, 217, 0.1);
+}
+
+.appt-check-in,
+.appt-checked-in,
+.appt-icu {
+  border-color: rgba(143, 30, 184, 0.3);
+  background: rgba(143, 30, 184, 0.08);
+}
+
+.appt-in-progress,
+.appt-in-recovery {
+  border-color: rgba(30, 171, 184, 0.3);
+  background: rgba(30, 171, 184, 0.08);
+}
+
+.appt-completed,
+.appt-discharged {
+  border-color: rgba(26, 207, 101, 0.3);
+  background: rgba(26, 207, 101, 0.08);
+}
+
+.appt-cancelled,
+.appt-life-support {
+  border-color: rgba(184, 30, 66, 0.3);
+  background: rgba(184, 30, 66, 0.08);
+}
+
+.appt-rescheduled {
+  border-color: rgba(127, 127, 127, 0.3);
+  background: rgba(127, 127, 127, 0.08);
+}
+
+/* Optional: sticky first column (shift) khi bảng tràn ngang) */
+.shift-table .sticky {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+  border-right: 1px solid #F0F0F0;
+}
+
+/* Loading inline */
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,0 +1,49 @@
+/* light styles inspired by your Figma snippet, but using tokens.css */
+.recep-wrap { position: relative; background: #fff; border:1px solid #F0F0F0; border-radius:10px; padding:18px; }
+.topbar{ display:flex; align-items:center; gap:16px; }
+.tabs{ background:#F0F0F0; border-radius:10px; display:flex; padding:5px; gap:10px; }
+.tab{ padding:6px 14px; border-radius:10px; font-weight:500; color:#7F7F7F; }
+.tab.active{ background:#fff; color:#168BD9; }
+.tab.ghost{ color:#7F7F7F; }
+
+.legend{ margin-left:auto; display:flex; gap:24px; align-items:center; }
+.legend-item{ display:flex; align-items:center; gap:10px; }
+.legend-text{ color:#7F7F7F; font-weight:500; font-size:14px; }
+
+.actions{ display:flex; gap:12px; margin-left:24px; }
+.btn-add{ background:#168BD9; border:none; border-radius:10px; padding:7px 18px; }
+.btn-outline{ border:1px solid #F0F0F0; background:#fff; color:#7F7F7F; border-radius:10px; }
+
+.filters{ margin-top:16px; }
+
+.table-card{ margin-top:18px; border:1px solid #F0F0F0; border-radius:10px; overflow:hidden; }
+.table-title{ padding:12px 16px; background:#F9F9FB; border-bottom:1px solid #F0F0F0; }
+.table-title h6{ margin:0; font-weight:600; }
+
+.appt-table thead th{ font-size:12px; text-transform:uppercase; color:#666E7D; background:#F9F9FB; border-bottom:1px solid #eee; }
+.appt-table tbody tr.row-item{ background:#fff; }
+.appt-table tbody tr:hover{ background:#f7fbff; }
+
+.status-dot{ width:12px; height:12px; border-radius:50px; display:inline-block; }
+.status-dot.green{ background:#1ACF65; }
+.status-dot.blue{ background:#1E61B8; }
+.status-dot.purple{ background:#8F1EB8; }
+.status-dot.teal{ background:#1EABB8; }
+.status-dot.red{ background:#B81E42; }
+.status-dot.gray{ background:#94a3b8; }
+
+/* detail modal */
+.detail-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.detail-item{ background:#F9F9FB; border:1px solid #F0F0F0; border-radius:8px; padding:10px 12px; }
+.detail-label{ font-size:12px; color:#666E7D; text-transform:uppercase; }
+.detail-value{ margin-top:2px; }
+
+/* pagination similar to mock */
+.paging{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px solid #F0F0F0; }
+.paging-btn{ background:#fff; border:1px solid #F0F0F0; border-radius:5px; padding:6px 10px; }
+.paging-pages{ display:flex; gap:6px; }
+.paging-num{ min-width:29px; height:30px; border:1px solid #F0F0F0; border-radius:5px; background:#fff; }
+.paging-num.active{ background:#168BD9; color:#fff; border-color:#168BD9; }
+.paging-ellipsis{ padding:6px 8px; color:#1B1B1B; }
+.paging-right{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+.paging-select{ border:1px solid #F0F0F0; border-radius:5px; padding:6px 12px; }

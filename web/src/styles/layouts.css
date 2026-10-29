@@ -1,0 +1,262 @@
+/* ==========================================================================
+   ADMIN UI (scoped) — layout, sidebar, topbar, density & visuals
+   - Safe with existing tokens/global (no removals), only adds/overrides in admin scope
+   ========================================================================== */
+
+/* --- Layout shell -------------------------------------------------------- */
+.admin-wrap {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-body {
+  padding: 24px;
+}
+
+/* --- Light theme JUST for admin area (scoped) ---------------------------- */
+.admin-theme {
+  /* Override a few CSS variables locally, without touching global pages */
+  --bg: #f6f8fb;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --ring: var(--line);  /* relies on tokens.css providing --line */
+  /* brand-50/100/200/700 should exist in tokens; if không có, thêm nhẹ trong tokens */
+}
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+.admin-sidebar {
+  width: 256px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.admin-sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.admin-sidebar .brand img {
+  width: 32px;
+  height: 32px;
+}
+
+.admin-sidebar .brand span {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+/* Section heading */
+.nav-section + .nav-section { margin-top: 12px; }
+
+.nav-title {
+  font-size: 12px;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin: 10px 10px 6px;
+}
+
+/* React-Bootstrap Nav.Link (as NavLink) items */
+.menu {
+  display: flex;
+  flex-direction: column;
+  row-gap: 6px;                /* compact vertical rhythm */
+}
+
+.menu .nav-link.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px !important; /* tighter than default RB */
+  margin: 2px 0 !important;
+  line-height: 1.15;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.menu .nav-link.item .icon {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.menu .nav-link.item:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-100);
+  text-decoration: none;
+}
+
+.menu .nav-link.item.active {
+  background: #eef2ff;
+  color: var(--brand-700);
+  border-color: var(--brand-200);
+  text-decoration: none;
+}
+
+/* ==========================================================================
+   TOPBAR
+   ========================================================================== */
+.admin-topbar {
+  height: 64px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--ring);
+  box-shadow: 0 6px 18px rgba(2, 6, 23, .05);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end !important;
+  padding: 20px !important;                /* more breathing room */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-topbar .search {
+  flex: 1;
+  max-width: 300px !important;                /* larger like the Figma */
+  margin: 0px 16px;              /* spacing from icon group */
+}
+
+.admin-topbar .search .searchbox {
+  height: 40px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0 14px;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.admin-topbar .actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;                       /* increase gap between buttons */
+}
+
+.admin-topbar .icon-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 12px rgba(2, 6, 23, .06);
+  padding: 0;                      /* neutralize RB button paddings */
+  line-height: 1;
+}
+
+.admin-topbar .profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;                       /* more space between avatar/name/logout */
+  margin-left: 8px;
+}
+
+.admin-topbar .profile .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #1d4ed8;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.admin-topbar .profile .name {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.admin-topbar .logout {
+  border-color: var(--line) !important;
+  border-radius: 10px !important;
+}
+
+.admin-topbar .logout:hover {
+  background: #f8fafc;
+}
+
+/* ==========================================================================
+   ADMIN UTILITIES (scoped, won’t affect public pages)
+   ========================================================================== */
+
+/* Make cards/charts look soft when you start adding widgets */
+.admin-theme .card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, .06);
+}
+
+/* Improve focus ring for inputs/buttons in admin area */
+.admin-theme .form-control:focus,
+.admin-theme .btn:focus,
+.admin-theme .icon-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+  border-color: #93c5fd;
+}
+
+/* ==========================================================================
+   RESPONSIVE TWEAKS
+   ========================================================================== */
+@media (max-width: 1280px) {
+  .admin-sidebar { width: 232px; }
+  .admin-topbar .search { max-width: 600px; }
+}
+
+@media (max-width: 992px) {
+  .admin-sidebar { width: 208px; }
+  .admin-topbar { padding: 0 16px; }
+  .admin-topbar .search { max-width: 100%; margin-right: 12px; }
+  .admin-topbar .actions { gap: 12px; }
+  .admin-topbar .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+}
+
+@media (max-width: 768px) {
+  .admin-wrap {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px;
+  }
+  .admin-sidebar .menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .admin-sidebar .menu .nav-link.item {
+    padding: 6px 10px !important;
+    font-size: 13px;
+  }
+  .admin-body {
+    padding: 16px;
+  }
+}
+
+/* End of admin.css */
+

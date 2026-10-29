@@ -1,0 +1,26 @@
+.appt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--appt-border, #e5e7eb);
+  background: var(--appt-bg, #f3f4f6);
+  color: var(--appt-fg, #374151);
+  font-size: 12px;
+}
+.appt .time {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.appt-confirmed { --appt-bg: #fffdee; --appt-fg: #afa31e; --appt-border: #fdfec7; }
+.appt-checked-in { --appt-bg: #e0f2fe; --appt-fg: #075985; --appt-border: #bae6fd; }
+.appt-in-progress { --appt-bg: #e0e7ff; --appt-fg: #3730a3; --appt-border: #c7d2fe; }
+.appt-completed { --appt-bg: #dcfce7; --appt-fg: #166534; --appt-border: #bbf7d0; }
+.appt-cancelled { --appt-bg: #fee2e2; --appt-fg: #991b1b; --appt-border: #fecaca; }
+.appt-default { --appt-bg: #f3f4f6; --appt-fg: #374151; --appt-border: #e5e7eb; }
+
+.appt:hover { filter: brightness(0.98); }
+

@@ -1,0 +1,66 @@
+.about-section {
+  background: linear-gradient(to bottom, #e3f2fd, #f5f9ff);
+  min-height: 500px;
+  padding: 60px 0;
+}
+
+.about-section h1 {
+  color: #007bff !important;
+  font-weight: 700;
+}
+
+.about-section .lead {
+  color: #6c757d !important;
+  font-size: 1.2rem;
+}
+
+.about-section .card {
+  border-radius: 12px;
+  border: none;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: white;
+}
+
+.about-section .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.about-section h3 {
+  color: #007bff !important;
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.about-section h5 {
+  color: #007bff !important;
+  font-weight: 600;
+}
+
+.about-section p {
+  color: #6c757d !important;
+  line-height: 1.7;
+}
+
+.about-section .text-primary {
+  color: #007bff !important;
+}
+
+.about-section .text-muted {
+  color: #6c757d !important;
+}
+
+@media (max-width: 768px) {
+  .about-section {
+    padding: 40px 0;
+  }
+
+  .about-section h1 {
+    font-size: 2rem;
+  }
+
+  .about-section h3 {
+    font-size: 1.3rem;
+  }
+}
+
