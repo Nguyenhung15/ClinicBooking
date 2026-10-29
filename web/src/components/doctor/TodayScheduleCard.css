@@ -1,0 +1,100 @@
+.today-schedule-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: 100%;
+}
+
+.today-schedule-card__header {
+  background: linear-gradient(135deg, #6BA3D8 0%, #8BB5E8 100%);
+  color: white;
+  border-radius: 12px 12px 0 0 !important;
+  border: none;
+  padding: 16px 20px;
+}
+
+.today-schedule-card__header h5 {
+  color: white;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.today-schedule-card__body {
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.today-schedule-card__list {
+  padding: 12px;
+}
+
+.today-schedule-card__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.today-schedule-card__item:last-child {
+  border-bottom: none;
+}
+
+.today-schedule-card__item:hover {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.today-schedule-card__time {
+  font-size: 16px;
+  font-weight: 600;
+  color: #6BA3D8;
+  min-width: 60px;
+  text-align: center;
+  padding-top: 2px;
+}
+
+.today-schedule-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.today-schedule-card__patient {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.today-schedule-card__reason {
+  font-size: 13px;
+  color: #6c757d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-schedule-card__meta {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.today-schedule-card__body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.today-schedule-card__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.today-schedule-card__body::-webkit-scrollbar-thumb {
+  background: #dee2e6;
+  border-radius: 3px;
+}
+
+.today-schedule-card__body::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+

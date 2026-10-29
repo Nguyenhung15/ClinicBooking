@@ -1,0 +1,337 @@
+/* ==========================================================================
+   DOCTORS SECTION COMPONENT STYLES
+   ========================================================================== */
+
+.doctors-section {
+  padding: 40px 0;
+  background: transparent;
+}
+
+.doctors-section__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.doctors-section__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1d4ed8;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  flex: 1;
+}
+
+.doctors-section__controls {
+  display: flex;
+  gap: 10px;
+}
+
+.doctors-section__nav-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.doctors-section__nav-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.doctors-section__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.doctors-section__loading {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.doctors-section__carousel {
+  position: relative;
+}
+
+.doctors-section__carousel .carousel-item {
+  padding: 10px 4px 16px;
+}
+
+.doctors-section__carousel .carousel-indicators [data-bs-target] {
+  background-color: #2563eb;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin: 0 4px;
+}
+
+/* --- Doctor Card --- */
+.doctors-section__card {
+  border-radius: 20px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05) !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  width: 100%;
+}
+
+.doctors-section__card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.12) !important;
+  border-color: #bfdbfe !important;
+}
+
+/* --- Avatar Image & Placeholder --- */
+.doctors-section__image-wrapper {
+  width: 130px;
+  height: 130px;
+  margin: 28px auto 14px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+  border: 4px solid #ffffff;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.14);
+  flex-shrink: 0;
+}
+
+.doctors-section__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.doctors-section__image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+  color: #3b82f6;
+}
+
+.doctors-section__avatar-svg {
+  opacity: 0.55;
+  width: 56px;
+  height: 56px;
+}
+
+.doctors-section__avatar-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  text-transform: uppercase;
+}
+
+/* --- Card Body & Details --- */
+.doctors-section__card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 22px 24px !important;
+  text-align: center;
+  flex: 1;
+}
+
+/* 1. Doctor Name (Prominent on top) */
+.doctors-section__name {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #012047 !important;
+  margin: 0 0 6px 0 !important;
+  line-height: 1.35;
+}
+
+/* 2. Degree / Qualifications (Under name, balanced height) */
+.doctors-section__degree {
+  font-size: 13.5px;
+  color: #475569;
+  font-weight: 500;
+  margin: 0 0 10px 0;
+  min-height: 38px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.42;
+}
+
+/* 3. Specialty Badge Chip */
+.doctors-section__specialty-wrap {
+  margin-bottom: 10px;
+}
+
+.doctors-section__specialty-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #eef5ff;
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 4. Experience Text */
+.doctors-section__experience {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+/* --- Action Buttons (Pushed to bottom) --- */
+.doctors-section__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px dashed #f1f5f9;
+}
+
+/* View Info Button */
+.doctors-section__view-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #2563eb;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.doctors-section__view-btn:hover {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Book Button */
+.doctors-section__book-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.doctors-section__book-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  transform: translateY(-1px);
+}
+
+.doctors-section__book-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* --- Modal Styles --- */
+.doctor-modal__avatar-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.16);
+  border: 4px solid #ffffff;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+}
+
+.doctor-modal__avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.doctor-modal__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+}
+
+/* --- Responsive Breakpoints --- */
+@media (max-width: 768px) {
+  .doctors-section {
+    padding: 24px 0;
+  }
+
+  .doctors-section__title {
+    font-size: 22px;
+  }
+
+  .doctors-section__actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .doctors-section__view-btn,
+  .doctors-section__book-btn {
+    width: 100%;
+    padding: 10px 14px;
+  }
+}

@@ -1,0 +1,404 @@
+.guest-doctors-page {
+  background-color: #f7f9fc;
+  min-height: 100vh;
+}
+
+.guest-doctors-page .vstack {
+  display: flex !important;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.guest-doctors-page .doctor-card {
+  border-radius: 16px !important;
+  border: 1px solid rgba(30, 60, 114, 0.08) !important;
+  box-shadow: 0 10px 25px -16px rgba(15, 63, 128, 0.3) !important;
+  padding: 1.5rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  background-color: #ffffff !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  position: relative !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: auto !important;
+}
+
+.guest-doctors-page .doctor-card__main {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 1.5rem !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* Bên trái: Khung ảnh bác sĩ */
+.guest-doctors-page .doctor-card__image {
+  width: 150px !important;
+  height: 180px !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: linear-gradient(140deg, #eff4ff 0%, #f8faff 100%) !important;
+  border: 1px solid rgba(30, 60, 114, 0.1) !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  z-index: 2 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__image-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Bên phải: Phần thông tin */
+.guest-doctors-page .doctor-card__content {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* Vùng 1: Dòng chuyên khoa */
+.guest-doctors-page .doctor-card__specialty-row {
+  margin-bottom: 0.5rem !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__specialty {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: #2563eb !important;
+  display: inline-block !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Vùng 2: Thông tin bác sĩ + Kinh nghiệm */
+.guest-doctors-page .doctor-card__info-section {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+}
+
+.guest-doctors-page .doctor-card__name-section {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__title {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #203150 !important;
+  margin: 0 !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__degree {
+  font-size: 0.95rem !important;
+  color: #5f6b85 !important;
+  font-weight: 500 !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__experience {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 0.9rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+}
+
+.guest-doctors-page .doctor-card__experience-label {
+  color: #5f6b85 !important;
+  font-weight: 500 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__experience-value {
+  color: #203150 !important;
+  font-weight: 600 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Vùng 3: Nút hành động */
+.guest-doctors-page .doctor-card__actions {
+  display: flex !important;
+  gap: 12px !important;
+  margin-top: 1rem !important;
+  padding-top: 0.5rem !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: auto !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.guest-doctors-page .doctor-card__btn {
+  padding: 10px 22px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  flex: 1 1 auto !important;
+  min-width: 120px !important;
+  max-width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.guest-doctors-page .doctor-card__btn-view {
+  border: 1px solid #2563eb !important;
+  background: #ffffff !important;
+  color: #2563eb !important;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__btn-view:hover {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+.guest-doctors-page .doctor-card__btn-book {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.45) !important;
+  font-weight: 600 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.guest-doctors-page .doctor-card__btn-book:hover {
+  background: #1d4ed8 !important;
+}
+
+/* Modal hiển thị thông tin chi tiết */
+.doctor-detail-modal {
+  padding: 0.5rem;
+}
+
+.doctor-detail-modal__header {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.doctor-detail-modal__image {
+  width: 120px;
+  height: 150px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(140deg, #eff4ff 0%, #f8faff 100%);
+  border: 1px solid rgba(30, 60, 114, 0.1);
+}
+
+.doctor-detail-modal__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.doctor-detail-modal__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doctor-detail-modal__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #203150;
+  margin: 0;
+}
+
+.doctor-detail-modal__degree {
+  font-size: 1rem;
+  color: #5f6b85;
+  margin: 0;
+}
+
+.doctor-detail-modal__specialty {
+  align-self: flex-start;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+}
+
+.doctor-detail-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.doctor-detail-modal__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doctor-detail-modal__item strong {
+  color: #203150;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.doctor-detail-modal__item span,
+.doctor-detail-modal__item p {
+  color: #5f6b85;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Filter Section - Horizontal Layout */
+.guest-doctors-page .filter-specialties-horizontal {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 1rem !important;
+  align-items: center !important;
+}
+
+.guest-doctors-page .filter-specialties-horizontal .filter-radio {
+  padding-left: 0 !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important;
+}
+
+.guest-doctors-page .filter-specialties-horizontal .form-check-input {
+  margin-right: 0.5rem !important;
+  margin-top: 0.25rem !important;
+  cursor: pointer !important;
+}
+
+.guest-doctors-page .filter-specialties-horizontal .form-check-label {
+  cursor: pointer !important;
+  margin-bottom: 0 !important;
+  font-weight: 500 !important;
+  user-select: none !important;
+}
+
+.guest-doctors-page .filter-specialties-horizontal .form-check-label:hover {
+  color: #2563eb !important;
+}
+
+/* Legacy vertical filter (if still used elsewhere) */
+.guest-doctors-page .filter-specialties .form-check {
+  padding-left: 0;
+}
+
+.guest-doctors-page .filter-specialties .form-check-input {
+  margin-right: 0.5rem;
+}
+
+.guest-doctors-page .filter-specialties .form-check-label {
+  cursor: pointer;
+}
+
+@media (max-width: 991px) {
+  .guest-doctors-page .filter-specialties-horizontal {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .doctor-card__main {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .doctor-card__image {
+    width: 200px;
+    height: 240px;
+  }
+
+  .doctor-card__content {
+    width: 100%;
+    text-align: center;
+  }
+
+  .doctor-card__specialty-row {
+    text-align: center;
+  }
+
+  .doctor-card__actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .doctor-detail-modal__header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .doctor-detail-modal__info {
+    align-items: center;
+    text-align: center;
+  }
+}
+

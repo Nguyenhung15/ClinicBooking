@@ -1,0 +1,112 @@
+.difference-section {
+  background: #f8fafc;
+  padding: 80px 0;
+  position: relative;
+}
+
+.difference-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(14, 130, 253, 0.1);
+  color: #0e82fd;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.difference-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #012047;
+  letter-spacing: -0.02em;
+}
+
+.difference-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+/* Stats Row */
+.difference-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin: 40px auto 30px;
+  max-width: 960px;
+}
+
+.difference-stat-card {
+  background: #ffffff;
+  padding: 22px 18px;
+  border-radius: 20px;
+  text-align: center;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 6px 20px rgba(1, 32, 71, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.difference-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(14, 130, 253, 0.12);
+  border-color: #bfdbfe;
+}
+
+.difference-stat-number {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #0e82fd 0%, #06aed4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.difference-stat-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* Carousel Images */
+.difference-image-wrapper {
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 10px 28px rgba(1, 32, 71, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: #ffffff;
+}
+
+.difference-image-wrapper img {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.difference-image-wrapper:hover img {
+  transform: scale(1.06);
+}
+
+.difference-carousel .carousel-indicators [data-bs-target] {
+  background-color: #0e82fd;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin: 0 4px;
+  transition: all 0.25s ease;
+}
+
+.difference-carousel .carousel-indicators .active {
+  width: 26px;
+}
+
+@media (max-width: 768px) {
+  .difference-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .difference-stat-number {
+    font-size: 26px;
+  }
+}

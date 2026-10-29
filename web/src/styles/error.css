@@ -1,0 +1,43 @@
+.err-wrap {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  padding: 48px 0;
+  background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%);
+}
+
+.err-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 28px;
+  text-align: center;
+}
+
+.err-code {
+  font-size: clamp(48px, 12vw, 96px);
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+/* Màu riêng cho từng mã lỗi (vẫn dùng chung 1 file) */
+.err-404 { color: #2382e0; }   /* xanh */
+.err-403 { color: #d9534f; }   /* đỏ */
+
+.err-title {
+  font-size: clamp(20px, 3.5vw, 28px);
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #1f2b3a;
+}
+
+.err-desc {
+  color: #5b6b7a;
+  margin-bottom: 24px;
+}
+
+.err-actions .err-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+}

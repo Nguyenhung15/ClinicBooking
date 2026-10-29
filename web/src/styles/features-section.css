@@ -1,0 +1,137 @@
+.features-section {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+  padding: 80px 0 60px;
+  position: relative;
+}
+
+.features-header {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.features-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(14, 130, 253, 0.1);
+  color: #0e82fd;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.features-main-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #012047;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.features-subtitle {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #64748b;
+  margin-top: 10px;
+}
+
+/* Feature Cards */
+.feature-card {
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 30px rgba(1, 32, 71, 0.05) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.28s ease !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 45px rgba(14, 130, 253, 0.12) !important;
+  border-color: #bfdbfe !important;
+}
+
+.feature-icon-wrapper {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.feature-card:hover .feature-icon-wrapper {
+  transform: scale(1.1) rotate(2deg);
+}
+
+.feature-icon-wrapper.tone-blue {
+  background: #eff6ff;
+  color: #0e82fd;
+}
+
+.feature-icon-wrapper.tone-teal {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+
+.feature-icon-wrapper.tone-purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.feature-card__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #012047;
+  line-height: 1.35;
+}
+
+.feature-card__desc {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #64748b;
+}
+
+/* Feature Button */
+.feature-btn {
+  border-radius: 999px !important;
+  padding: 12px 20px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.02em !important;
+  background: linear-gradient(90deg, #0e82fd 0%, #0284c7 100%) !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: all 0.22s ease !important;
+  box-shadow: 0 4px 14px rgba(14, 130, 253, 0.25) !important;
+}
+
+.feature-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 20px rgba(14, 130, 253, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.feature-btn .btn-arrow {
+  transition: transform 0.2s ease;
+}
+
+.feature-btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+  .features-section {
+    padding: 60px 0 40px;
+  }
+  .features-main-title {
+    font-size: 26px;
+  }
+}

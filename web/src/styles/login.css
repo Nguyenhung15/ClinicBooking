@@ -1,0 +1,629 @@
+/* ==========================================================================
+   ANIMATED LAMP LOGIN PAGE STYLES (Scoped to .lamp-room)
+   ========================================================================== */
+
+.lamp-room {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  overflow: hidden;
+  background: #050505;
+  transition: background-color 0.8s ease, min-height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  color: #fff;
+}
+
+.public-layout.on-login-page.lamp-off .lamp-room,
+body.lamp-off .lamp-room {
+  min-height: 100vh;
+}
+
+.public-layout.on-login-page.lamp-on .lamp-room,
+body.lamp-on .lamp-room {
+  min-height: calc(100vh - 80px);
+}
+
+.lamp-room.on {
+  background: #0c121e;
+}
+
+/* --- Ambient Light --- */
+.room-light {
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 1000px;
+  height: 1000px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transform: scale(0.5);
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 100, 0.18) 0%,
+    rgba(255, 214, 0, 0.06) 30%,
+    transparent 70%
+  );
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.lamp-room.on .room-light {
+  opacity: 1;
+  transform: scale(1.5);
+}
+
+/* --- Fireflies --- */
+.fireflies {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  overflow: hidden;
+}
+
+.firefly {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffea00;
+  box-shadow:
+    0 0 10px 3px rgba(255, 234, 0, 0.9),
+    0 0 20px rgba(255, 179, 0, 0.6);
+  animation: fireflyMove var(--duration, 40s) ease-in-out var(--delay, 0s) infinite alternate;
+}
+
+@keyframes fireflyMove {
+  0% {
+    transform: translate(var(--x1, 10vw), var(--y1, 20vh));
+    opacity: 0.35;
+  }
+  25% {
+    transform: translate(var(--x2, 40vw), var(--y2, 10vh));
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(var(--x3, 70vw), var(--y3, 50vh));
+    opacity: 0.55;
+  }
+  75% {
+    transform: translate(var(--x4, 30vw), var(--y4, 80vh));
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--x5, 80vw), var(--y5, 30vh));
+    opacity: 0.45;
+  }
+}
+
+/* --- Lamp Side --- */
+.lamp-side {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 5;
+  padding: 40px 20px;
+}
+
+.lamp-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  transform: scale(1.05);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lamp-head {
+  width: 140px;
+  height: 50px;
+  background: #181818;
+  border-radius: 140px 140px 4px 4px;
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.15),
+    0 10px 20px rgba(0, 0, 0, 0.9);
+  position: relative;
+  z-index: 6;
+  transition: box-shadow 0.4s ease;
+  border-bottom: 2px solid #050505;
+}
+
+.lamp-room.on .lamp-head {
+  box-shadow:
+    inset 0 -3px 10px rgba(255, 220, 150, 0.45),
+    inset 0 2px 5px rgba(255, 255, 255, 0.15);
+}
+
+.lamp-glow {
+  position: absolute;
+  top: 40px;
+  width: 90px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 40px 20px rgba(255, 230, 150, 0.9),
+    0 0 80px 40px rgba(255, 200, 100, 0.6);
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.lamp-room.on .lamp-glow {
+  opacity: 1;
+}
+
+.light-beam {
+  position: absolute;
+  top: 45px;
+  width: 500px;
+  height: 350px;
+  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 230, 140, 0.8) 0%,
+    rgba(255, 200, 80, 0.22) 60%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+  z-index: 3;
+  pointer-events: none;
+  filter: blur(8px);
+}
+
+.lamp-room.on .light-beam {
+  opacity: 1;
+}
+
+.lamp-stem {
+  width: 6px;
+  height: 290px;
+  background: linear-gradient(to right, #050505 0%, #2a2a2a 50%, #050505 100%);
+  position: relative;
+  z-index: 4;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.lamp-room.on .lamp-stem {
+  background: linear-gradient(to right, #050505 0%, #3a3020 50%, #050505 100%);
+  box-shadow: 0 0 10px rgba(255, 200, 100, 0.2);
+}
+
+.lamp-base {
+  width: 100px;
+  height: 16px;
+  background: #181818;
+  border-radius: 30px 30px 4px 4px;
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.15),
+    0 10px 20px rgba(0, 0, 0, 0.9);
+  position: relative;
+  z-index: 5;
+  transition: box-shadow 0.4s ease;
+  border-bottom: 2px solid #050505;
+}
+
+.lamp-room.on .lamp-base {
+  box-shadow:
+    inset 0 2px 6px rgba(255, 220, 150, 0.35),
+    0 10px 20px rgba(0, 0, 0, 0.9);
+}
+
+.desk-surface {
+  position: absolute;
+  bottom: -40px;
+  width: 550px;
+  height: 100px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 220, 120, 0.28) 0%,
+    rgba(255, 180, 50, 0.08) 50%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.lamp-room.on .desk-surface {
+  opacity: 1;
+}
+
+/* --- Pull String & Handle --- */
+.string-svg {
+  position: absolute;
+  top: 45px;
+  left: calc(50% + 55px);
+  width: 2px;
+  height: 2px;
+  overflow: visible;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.string-svg path {
+  stroke: #444;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.string-handle {
+  position: absolute;
+  top: 125px;
+  left: calc(50% + 49px);
+  width: 12px;
+  height: 22px;
+  background: linear-gradient(to bottom, #ebd17a, #aa8529);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.8);
+  cursor: grab;
+  z-index: 6;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.string-handle.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+/* Prompt Hint */
+.lamp-prompt {
+  position: absolute;
+  top: 12%;
+  left: 20%;
+  transform: translateX(-50%);
+  color: #888;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 1;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  z-index: 10;
+  user-select: none;
+}
+
+.lamp-room.on .lamp-prompt {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+  pointer-events: none;
+}
+
+.lamp-prompt i {
+  width: 2px;
+  height: 36px;
+  background: linear-gradient(to bottom, #888, transparent);
+  animation: promptArrow 1.8s infinite;
+}
+
+@keyframes promptArrow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(10px);
+  }
+}
+
+/* --- Login Side --- */
+.login-side {
+  flex: 1.1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 40px 8% 40px 20px;
+}
+
+.lamp-login-card {
+  padding: 42px 40px;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  opacity: 0.18;
+  transform: translateX(40px);
+  filter: blur(8px);
+  pointer-events: none;
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.6s ease;
+}
+
+.lamp-room.on .lamp-login-card {
+  opacity: 1;
+  transform: translateX(0);
+  filter: blur(0);
+  pointer-events: auto;
+  transition-delay: 0.2s;
+}
+
+.glass-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+}
+
+.login-heading {
+  text-align: center;
+}
+
+.login-heading h2 {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.login-heading p {
+  color: #94a3b8;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* --- Form Fields --- */
+.lamp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lamp-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.lamp-input-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.lamp-input-wrap input {
+  width: 100%;
+  padding: 14px 16px 14px 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.lamp-input-wrap input::placeholder {
+  color: #64748b;
+}
+
+.lamp-input-wrap input:focus {
+  border-color: rgba(255, 220, 100, 0.6);
+  background: rgba(0, 0, 0, 0.65);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 0 3px rgba(255, 220, 100, 0.12);
+}
+
+.lamp-input-wrap:focus-within .lamp-input-icon {
+  color: #ffd600;
+}
+
+/* --- Submit Button --- */
+.sign-in-btn {
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: #ffd600;
+  color: #0b1020;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: transform 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sign-in-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #ffe043;
+  box-shadow: 0 6px 20px rgba(255, 214, 0, 0.38);
+}
+
+.sign-in-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Error Block --- */
+.lamp-error-block {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-align: center;
+  color: #fca5a5;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-forgot-lamp {
+  color: #ffd600;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.btn-forgot-lamp:hover {
+  color: #ffe043;
+}
+
+/* --- Links & Divider --- */
+.lamp-auth-footer {
+  text-align: center;
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.lamp-auth-footer a {
+  color: #ffd600;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.lamp-auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.lamp-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0;
+}
+
+.lamp-divider span {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.lamp-divider b {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* --- Socials --- */
+.lamp-socials {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.lamp-social-btn {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.18s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.lamp-social-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.lamp-social-btn.google:hover {
+  border-color: rgba(66, 133, 244, 0.6);
+}
+
+.lamp-social-btn.facebook:hover {
+  border-color: rgba(24, 119, 242, 0.6);
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+@media (max-width: 900px) {
+  .public-layout.on-login-page.lamp-off .lamp-room,
+  .public-layout.on-login-page.lamp-on .lamp-room,
+  .lamp-room {
+    flex-direction: column;
+    overflow-y: auto;
+    min-height: auto;
+  }
+
+  .lamp-side {
+    flex: 0 0 460px;
+    min-height: 440px;
+    padding-top: 20px;
+  }
+
+  .login-side {
+    padding: 0 20px 60px;
+    flex: 0 0 auto;
+  }
+
+  .lamp-login-card {
+    max-width: 440px;
+    padding: 32px 24px;
+    transform: translateY(30px);
+  }
+
+  .lamp-room.on .lamp-login-card {
+    transform: translateY(0);
+  }
+
+  .lamp-prompt {
+    left: 50%;
+    top: 6%;
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+@media (max-height: 650px) and (min-width: 901px) {
+  .lamp-container {
+    transform: scale(0.85);
+  }
+  .lamp-login-card {
+    padding: 28px;
+    gap: 16px;
+  }
+}

@@ -1,0 +1,111 @@
+/* ===== Banner ===== */
+.banner{
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  position: relative;
+}
+.banner-img{
+  height: 580px;            /* desktop */
+  object-fit: cover;
+}
+@media (max-width: 768px){
+  .banner-img{ height: 320px; }
+}
+
+/* ===== Quick Action =====
+   Kéo cụm nút chồng lên đáy banner, căn giữa & giãn cách hợp lý
+*/
+.quick-action{
+  margin-top: -6.3rem;    /* theo yêu cầu */
+  position: relative;
+  z-index: 5;
+}
+.quick-action__inner{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;            /* giãn cách giữa nút */
+  flex-wrap: wrap;      /* xuống hàng đẹp trên mobile */
+}
+
+/* Base style: giống nút header (viên thuốc, viền, shadow, blur nhẹ) */
+.qa-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none !important;
+  border-radius: 9999px;
+  padding: 14px 28px;               /* kích thước to hơn */
+  min-width: 220px;                 /* đồng đều chiều ngang */
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid var(--qa-border);
+  box-shadow: 0 12px 32px rgba(1, 32, 71, 0.16);
+  transition: transform .22s cubic-bezier(0.16, 1, 0.3, 1), filter .2s ease, box-shadow .22s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.qa-icon {
+  flex-shrink: 0;
+  transition: transform 0.22s ease;
+}
+.qa-btn:hover .qa-icon {
+  transform: scale(1.12);
+}
+
+/* Biến thể giống “Đặt lịch khám” (primary pill) */
+.qa-primary{
+  background: var(--header-pill, --qa-primary);
+  color: var(--qa-primary-ink);
+}
+.qa-primary:hover{
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(30,98,225,.35);
+}
+
+/* Biến thể outline trong suốt (giống nút header kiểu ghost/outline) */
+.qa-outline{
+  background: var(--qa-outline-bg);
+  color: var(--qa-outline-ink);
+}
+.qa-outline:hover{
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+/* Biến thể sáng hơn dùng cho “Tìm hiểu thêm” */
+.qa-light{
+  background: rgba(255,255,255,.9);
+  color: #0b1320;
+  border-color: rgba(0,0,0,.06);
+}
+.qa-light:hover{
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.16);
+}
+
+/* Focus/active states – cảm giác nhấn tốt hơn */
+.qa-btn:focus-visible{
+  outline: 3px solid rgba(30,98,225,.35);
+  outline-offset: 2px;
+}
+.qa-btn:active{
+  transform: translateY(0);
+  filter: brightness(1.0);
+}
+
+/* Tối ưu spacing trên mobile */
+@media (max-width: 576px){
+  .qa-btn{
+    min-width: 100%;
+  }
+  .quick-action__inner{
+    gap: 10px;
+  }
+}
