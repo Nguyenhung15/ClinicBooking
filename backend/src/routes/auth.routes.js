@@ -6,7 +6,9 @@ const router = Router();
 
 router.post('/login', authController.login);
 router.post('/register', authController.register);
+router.get('/bootstrap-status', authController.getBootstrapStatus);
 router.post('/register-admin', authController.registerAdmin);
+router.post('/bootstrap-admin', authController.registerAdmin);
 router.post('/change-password', authenticate, authController.changePassword);
 router.post('/oauth2/logout', authController.oauth2Logout);
 

@@ -5,6 +5,7 @@ const { signAccessToken } = require('../utils/jwt');
 const { ROLES, AUTH_PROVIDERS, AUDIT_ACTIONS } = require('../constants/enums');
 const { User } = require('../models');
 const { recordAudit } = require('./audit.service');
+const bootstrapAdminService = require('./bootstrapAdmin.service');
 
 const BCRYPT_ROUNDS = 10;
 const OAUTH_PASSWORD_SENTINEL = '{noop}GOOGLE_LOGIN';
@@ -52,7 +53,7 @@ async function login({ email, password }) {
   };
 }
 
-async function registerByRole(payload, role) {
+async function registerPatient(payload) {
   const fullName = typeof payload?.fullName === 'string' ? payload.fullName.trim() : '';
   if (!fullName) {
     throw new ApiError(400, 'Họ và tên không được để trống');
@@ -67,13 +68,14 @@ async function registerByRole(payload, role) {
   }
 
   const hashedPassword = await bcrypt.hash(payload.password, BCRYPT_ROUNDS);
+  // Strictly force `userType: ROLES.PATIENT` — never trust role fields from public registration payloads
   const created = await User.create({
     fullName,
     email,
     phoneNumber: payload?.phoneNumber ? String(payload.phoneNumber).trim() : null,
     password: hashedPassword,
     gender: normalizeGender(payload?.gender),
-    userType: role,
+    userType: ROLES.PATIENT,
     isEnable: true,
     authProvider: AUTH_PROVIDERS.LOCAL,
   });
@@ -84,12 +86,12 @@ async function registerByRole(payload, role) {
   };
 }
 
-async function registerPatient(payload) {
-  return registerByRole(payload, ROLES.PATIENT);
+async function registerAdmin(payload, req = null) {
+  return bootstrapAdminService.bootstrapFirstAdmin(payload, req);
 }
 
-async function registerAdmin(payload) {
-  return registerByRole(payload, ROLES.ADMIN);
+async function getBootstrapStatus() {
+  return bootstrapAdminService.getBootstrapStatus();
 }
 
 async function changePassword(actor, payload, req) {
@@ -137,6 +139,7 @@ module.exports = {
   login,
   registerPatient,
   registerAdmin,
+  getBootstrapStatus,
   changePassword,
 };
 

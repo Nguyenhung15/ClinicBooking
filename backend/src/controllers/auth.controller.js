@@ -19,10 +19,18 @@ const register = async (req, res) => {
 };
 
 const registerAdmin = async (req, res) => {
-  const result = await authService.registerAdmin(req.body);
+  const result = await authService.registerAdmin(req.body, req);
   return sendSuccess(res, {
     statusCode: 201,
-    message: 'Tạo tài khoản Admin thành công',
+    message: 'Khởi tạo tài khoản Admin thành công',
+    data: result,
+  });
+};
+
+const getBootstrapStatus = async (_req, res) => {
+  const result = await authService.getBootstrapStatus();
+  return sendSuccess(res, {
+    message: 'Trạng thái cơ chế khởi tạo Admin ban đầu',
     data: result,
   });
 };
@@ -43,6 +51,7 @@ module.exports = {
   login,
   register,
   registerAdmin,
+  getBootstrapStatus,
   changePassword,
   oauth2Logout,
 };
