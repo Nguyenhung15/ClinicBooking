@@ -519,3 +519,4 @@ describe('UC-PAT-04: Đặt lịch khám nguyên tử (POST /appointments/create
     assert.equal(s2.status, 'BOOKED');
   });
 });
+
