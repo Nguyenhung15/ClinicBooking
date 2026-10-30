@@ -63,6 +63,24 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    isBookingLocked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    bookingLockedAt: {
+      type: Date,
+      default: null,
+    },
+    bookingLockedUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    bookingLockedReason: {
+      type: String,
+      default: null,
+    },
     authProvider: {
       type: String,
       enum: Object.values(AUTH_PROVIDERS),
