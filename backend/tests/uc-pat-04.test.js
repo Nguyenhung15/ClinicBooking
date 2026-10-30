@@ -627,15 +627,14 @@ describe('UC-PAT-04: Đặt lịch khám nguyên tử (POST /appointments/create
     });
 
     const realUpdateOne = DoctorShift.updateOne;
-    let failRefUpdate = true;
-    DoctorShift.updateOne = async function (filter, update, options) {
-      if (failRefUpdate && update?.$set?.['slots.$[elem].bookingRef'] && !update?.$set?.['slots.$[elem].status']) {
-        throw new Error('Simulated network glitch during bookingRef update');
-      }
-      return realUpdateOne.call(this, filter, update, options);
-    };
-
     try {
+      let failRefUpdate = true;
+      DoctorShift.updateOne = async function (filter, update, options) {
+        if (failRefUpdate && update?.$set?.['slots.$[elem].bookingRef'] && !update?.$set?.['slots.$[elem].status']) {
+          throw new Error('Simulated network glitch during bookingRef update');
+        }
+        return realUpdateOne.call(this, filter, update, options);
+      };
       const res = await apiRequest('POST', `/appointments/create?specialtyId=${specialty1Id}`, {
         token: patient2Token,
         body: {
