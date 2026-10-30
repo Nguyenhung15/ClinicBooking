@@ -48,11 +48,18 @@ async function bookAppointment(user, query = {}, body = {}) {
 
   // 0. Check cancellation lock policy (BR-03, A6)
   const patientUser = await User.findOne({ id: user.id }).lean();
-  const cancelCount = await Appointment.countDocuments({
-    patientId: user.id,
-    status: APPOINTMENT_STATUSES.CANCELLED,
-  });
-  if (patientUser?.isBookingLocked || cancelCount >= env.cancelLockThreshold) {
+  const checkTime = new Date();
+
+  // Restriction lasts 24 hours: expires automatically when bookingLockedUntil <= now
+  const isLockActive = Boolean(
+    patientUser?.bookingLockedUntil
+      ? new Date(patientUser.bookingLockedUntil) > checkTime
+      : patientUser?.isBookingLocked && patientUser?.bookingLockedAt
+        ? new Date(patientUser.bookingLockedAt).getTime() + (env.bookingLockDurationHours || 24) * 3600 * 1000 > checkTime.getTime()
+        : false,
+  );
+
+  if (isLockActive) {
     throw new ApiError(
       403,
       `Tài khoản của bạn đã bị khóa quyền đặt lịch mới do đạt ngưỡng ${env.cancelLockThreshold} lần hủy lịch khám`,
@@ -857,6 +864,7 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
             {
               'elem.id': { $in: slotIdsToRelease },
               'elem.status': 'BOOKED',
+              'elem.bookingRef': appointment.appointmentNo,
             },
           ],
         },
@@ -881,20 +889,32 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
     }
   }
 
-  // 8. Enforce 3-cancellation booking lock policy (BR-03, A6)
+  // 8. Enforce 3-cancellation booking lock policy for 24 hours (BR-03, A6)
+  // TODO (Future Scope): When Receptionist/Admin cancellation Use Cases are implemented,
+  // cancellation records must distinguish who initiated the cancellation (e.g. cancelledBy / cancelledByRole)
+  // so that cancellations caused by clinic staff are not counted against the Patient.
   const totalCancelled = await Appointment.countDocuments({
     patientId: user.id,
     status: APPOINTMENT_STATUSES.CANCELLED,
   });
 
-  if (totalCancelled >= env.cancelLockThreshold) {
+  const lockThreshold = env.cancelLockThreshold || 3;
+  const lockDurationHours = env.bookingLockDurationHours || 24;
+  let isLockActivated = false;
+  let lockedUntil = null;
+
+  if (totalCancelled >= lockThreshold) {
+    isLockActivated = true;
+    lockedUntil = new Date(now.getTime() + lockDurationHours * 3600 * 1000);
+
     await User.updateOne(
       { id: user.id },
       {
         $set: {
           isBookingLocked: true,
           bookingLockedAt: now,
-          bookingLockedReason: `Đạt ngưỡng ${env.cancelLockThreshold} lần hủy lịch khám`,
+          bookingLockedUntil: lockedUntil,
+          bookingLockedReason: `Đạt ngưỡng ${lockThreshold} lần hủy lịch khám (khóa quyền đặt lịch trong ${lockDurationHours} giờ)`,
         },
       },
     );
@@ -914,7 +934,8 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
         releasedSlotIds: slotIdsToRelease,
         cancelledAt: now,
         totalCancellations: totalCancelled,
-        bookingLocked: totalCancelled >= env.cancelLockThreshold,
+        bookingLocked: isLockActivated,
+        bookingLockedUntil: lockedUntil,
       },
       req,
     });
