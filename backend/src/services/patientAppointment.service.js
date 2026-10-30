@@ -436,6 +436,7 @@ async function reconcileOrphanSlots(maxAgeMinutes = 10) {
     for (const slot of staleSlots) {
       // Check if an active appointment exists for this slot
       const appointmentExists = await Appointment.exists({
+        shiftId: s.id,
         slotIds: slot.id,
         status: { $nin: ['CANCELLED', 'EXPIRED'] },
       });
