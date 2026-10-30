@@ -12,5 +12,29 @@ router.post(
   patientAppointmentController.createAppointment,
 );
 
-module.exports = router;
+router.get(
+  '/my-upcoming',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  patientAppointmentController.getMyUpcomingAppointments,
+);
 
+router.get(
+  '/my-completed',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  patientAppointmentController.getMyCompletedAppointments,
+);
+
+router.get(
+  '/:id',
+  authenticate,
+  (req, res, next) => {
+    if (req.user.userType !== ROLES.PATIENT) {
+      return next();
+    }
+    return patientAppointmentController.getAppointmentDetail(req, res, next);
+  },
+);
+
+module.exports = router;
