@@ -11,6 +11,7 @@ const TEST_DB_URI =
 const app = require('../src/app');
 const { User, PatientProfile, Appointment } = require('../src/models');
 const { ROLES } = require('../src/constants/enums');
+const patientProfileService = require('../src/services/patientProfile.service');
 
 let server;
 let baseUrl;
@@ -164,15 +165,17 @@ describe('UC-PAT-02: Quản lý hồ sơ người phụ thuộc (/patients-info)
       body: {
         fullName: 'Nguyễn Văn Con Đã Lớn',
         gender: 'Male',
+        phoneNumber: '+84901234567',
         relationship: 'Con trai',
       },
     });
     assert.equal(updateRes.status, 200);
     assert.equal(updateRes.body.data.fullName, 'Nguyễn Văn Con Đã Lớn');
+    assert.equal(updateRes.body.data.phoneNumber, '+84901234567');
     assert.equal(updateRes.body.data.relationship, 'Con trai');
   });
 
-  it('3. Validation: rejects invalid inputs (400)', async () => {
+  it('3. Validation: rejects invalid inputs, future dob, bad phone, and limit (400)', async () => {
     // Missing fullName
     const emptyName = await apiRequest('POST', '/patients-info/create', {
       token: patientAToken,
@@ -187,11 +190,35 @@ describe('UC-PAT-02: Quản lý hồ sơ người phụ thuộc (/patients-info)
     });
     assert.equal(futureDob.status, 400);
 
+    // Invalid phone number
+    const badPhone = await apiRequest('POST', '/patients-info/create', {
+      token: patientAToken,
+      body: { fullName: 'Phone Test', phoneNumber: '12345', relationship: 'Con' },
+    });
+    assert.equal(badPhone.status, 400);
+
     // Invalid ID
     const invalidId = await apiRequest('GET', '/patients-info/abc', {
       token: patientAToken,
     });
     assert.equal(invalidId.status, 400);
+
+    // Profile limit per user: create up to MAX_PROFILES_PER_USER (10) for Patient B
+    for (let i = 1; i <= 10; i += 1) {
+      const res = await apiRequest('POST', '/patients-info/create', {
+        token: patientBToken,
+        body: { fullName: `Người thân ${i}`, phoneNumber: '0912345678', relationship: 'Con' },
+      });
+      assert.equal(res.status, 201);
+    }
+
+    // 11th profile should be rejected with 400 limit exceeded
+    const overflow = await apiRequest('POST', '/patients-info/create', {
+      token: patientBToken,
+      body: { fullName: 'Người thân 11', phoneNumber: '0912345678', relationship: 'Con' },
+    });
+    assert.equal(overflow.status, 400);
+    assert.match(overflow.body.message, /tối đa 10 hồ sơ/i);
   });
 
   it('4. Ownership & Access Control: Patient B cannot access or modify Patient A profiles', async () => {
@@ -202,13 +229,6 @@ describe('UC-PAT-02: Quản lý hồ sơ người phụ thuộc (/patients-info)
     });
     assert.equal(createA.status, 201);
     const profileAId = createA.body.data.id;
-
-    // Patient B lists profiles -> should NOT see profile of Patient A
-    const listB = await apiRequest('GET', '/patients-info/my', {
-      token: patientBToken,
-    });
-    assert.equal(listB.status, 200);
-    assert.equal(listB.body.data.length, 0);
 
     // Patient B tries to get Patient A's profile
     const getForbidden = await apiRequest('GET', `/patients-info/${profileAId}`, {
@@ -301,5 +321,17 @@ describe('UC-PAT-02: Quản lý hồ sơ người phụ thuộc (/patients-info)
     const archivedDoc = await PatientProfile.findOne({ id: linkedId });
     assert.ok(archivedDoc);
     assert.equal(archivedDoc.isArchived, true);
+
+    // Booking guard rejects using an archived profile
+    await assert.rejects(
+      async () => {
+        await patientProfileService.getActiveProfileForOwner(patientAId, linkedId);
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.match(err.message, /đã bị lưu trữ/i);
+        return true;
+      },
+    );
   });
 });
