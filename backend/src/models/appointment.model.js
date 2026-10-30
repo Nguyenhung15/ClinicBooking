@@ -105,6 +105,8 @@ const appointmentSchema = new mongoose.Schema(
   },
 );
 
+appointmentSchema.index({ appointmentDate: 1, doctorId: 1, status: 1 });
+
 appointmentSchema.plugin(baseSchemaPlugin, {
   sequenceName: 'appointments',
 });
