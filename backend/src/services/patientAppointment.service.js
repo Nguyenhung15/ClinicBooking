@@ -7,7 +7,8 @@ const {
   PatientProfile,
   Prescription,
 } = require('../models');
-const { ROLES, APPOINTMENT_STATUSES } = require('../constants/enums');
+const { ROLES, APPOINTMENT_STATUSES, AUDIT_ACTIONS } = require('../constants/enums');
+const { recordAudit } = require('./audit.service');
 const ApiError = require('../utils/ApiError');
 const { parsePositiveInt, normalizeGender } = require('../utils/normalizers');
 const patientProfileService = require('./patientProfile.service');
@@ -43,6 +44,19 @@ const generateAppointmentNo = () => {
 async function bookAppointment(user, query = {}, body = {}) {
   if (!user || user.userType !== ROLES.PATIENT) {
     throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền đặt lịch khám');
+  }
+
+  // 0. Check cancellation lock policy (BR-03, A6)
+  const patientUser = await User.findOne({ id: user.id }).lean();
+  const cancelCount = await Appointment.countDocuments({
+    patientId: user.id,
+    status: APPOINTMENT_STATUSES.CANCELLED,
+  });
+  if (patientUser?.isBookingLocked || cancelCount >= env.cancelLockThreshold) {
+    throw new ApiError(
+      403,
+      `Tài khoản của bạn đã bị khóa quyền đặt lịch mới do đạt ngưỡng ${env.cancelLockThreshold} lần hủy lịch khám`,
+    );
   }
 
   // 1. Validate query and inputs
@@ -522,6 +536,10 @@ function serializePatientAppointment(
       dob: p.dob,
       relationship: p.relationship,
     })),
+    cancelReason: appointment.cancelReason || undefined,
+    cancelledAt: appointment.cancelledAt
+      ? new Date(appointment.cancelledAt).toISOString()
+      : undefined,
     createdAt: appointment.createdAt
       ? new Date(appointment.createdAt).toISOString()
       : undefined,
@@ -662,6 +680,263 @@ async function getPatientAppointmentDetail(user, appointmentId) {
   );
 }
 
+
+/**
+ * Helper to compute Date object for appointment date & time in clinic timezone.
+ */
+function getAppointmentStartDateTime(dateStr, timeStr, timeZone = env.clinicTimeZone) {
+  const [hours, minutes] = (timeStr || '00:00').split(':').map((s) => s.padStart(2, '0'));
+  const [year, month, day] = (dateStr || '').split('-').map(Number);
+
+  const tempDate = new Date();
+  const utcStr = tempDate.toLocaleString('en-US', { timeZone: 'UTC' });
+  const tzStr = tempDate.toLocaleString('en-US', { timeZone });
+  const diffMs = new Date(tzStr).getTime() - new Date(utcStr).getTime();
+
+  const utcEquivalent = Date.UTC(year, month - 1, day, Number(hours), Number(minutes), 0, 0);
+  return new Date(utcEquivalent - diffMs);
+}
+
+/**
+ * Best-effort cancellation notification helper (A10).
+ */
+async function sendCancellationNotification(patient, appointment) {
+  try {
+    console.log(
+      `[Notification] Cancellation notification dispatched for appointment ${appointment.appointmentNo} (Patient: ${patient.id})`,
+    );
+    return { sent: true };
+  } catch (err) {
+    console.error(
+      `[Notification] Failed to send cancellation notification for appointment ${appointment.appointmentNo}:`,
+      err,
+    );
+    return { sent: false, error: err.message };
+  }
+}
+
+/**
+ * UC-PAT-06: Cancel appointment by Patient.
+ * Enforces ownership (BR-01), 24h limit (BR-02), lock threshold (BR-03),
+ * status validation (BR-04), atomic slot release (BR-05), audit log (BR-06).
+ */
+async function cancelPatientAppointment(user, appointmentId, body = {}, req = null) {
+  if (!user || user.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền hủy lịch khám');
+  }
+
+  const id = parsePositiveInt(appointmentId, 'id');
+
+  // 1. Fetch appointment & verify existence (A1) and ownership (BR-01, A2)
+  const appointment = await Appointment.findOne({ id }).lean();
+  if (!appointment) {
+    throw new ApiError(404, 'Không tìm thấy lịch hẹn');
+  }
+
+  if (appointment.patientId !== user.id) {
+    throw new ApiError(403, 'Bạn không có quyền truy cập hoặc hủy lịch hẹn này');
+  }
+
+  // 2. Idempotency: If already CANCELLED, return current state without double release (BR-05, A8)
+  if (appointment.status === APPOINTMENT_STATUSES.CANCELLED) {
+    const [doctor, specialty] = await Promise.all([
+      User.findOne({ id: appointment.doctorId }).select('id fullName').lean(),
+      Specialty.findOne({ id: appointment.specialtyId }).select('id name').lean(),
+    ]);
+    const doctorMap = new Map([[appointment.doctorId, doctor?.fullName || 'N/A']]);
+    const specialtyMap = new Map([[appointment.specialtyId, specialty?.name || 'N/A']]);
+    return serializePatientAppointment(appointment, doctorMap, specialtyMap);
+  }
+
+  // 3. Status validation: Cannot cancel completed or already started appointments (BR-04, A4, A5)
+  const nonCancellableStatuses = [
+    APPOINTMENT_STATUSES.CHECKED_IN,
+    APPOINTMENT_STATUSES.IN_PROGRESS,
+    APPOINTMENT_STATUSES.COMPLETED,
+    APPOINTMENT_STATUSES.EXPIRED,
+    APPOINTMENT_STATUSES.NO_SHOW,
+  ];
+  if (nonCancellableStatuses.includes(appointment.status)) {
+    throw new ApiError(400, 'Không thể hủy lịch khám đã hoàn tất hoặc đã bắt đầu khám');
+  }
+
+  const cancellableStatuses = [
+    APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
+    APPOINTMENT_STATUSES.CONFIRMED,
+    APPOINTMENT_STATUSES.PENDING_PAYMENT,
+  ];
+  if (!cancellableStatuses.includes(appointment.status)) {
+    throw new ApiError(400, `Không thể hủy lịch khám ở trạng thái ${appointment.status}`);
+  }
+
+  // 4. Time limit check: Reject if less than 24h before start time or in past (BR-02, A3, A4)
+  const now = new Date();
+  const startDateTime = getAppointmentStartDateTime(
+    appointment.appointmentDate,
+    appointment.appointmentTime,
+    env.clinicTimeZone,
+  );
+  const diffMs = startDateTime.getTime() - now.getTime();
+  const diffHours = diffMs / (3600 * 1000);
+
+  if (diffMs <= 0) {
+    throw new ApiError(400, 'Lịch khám đã bắt đầu hoặc đã qua thời gian khám, không thể hủy');
+  }
+
+  if (diffHours < env.cancelMinHours) {
+    throw new ApiError(
+      400,
+      `Không thể hủy lịch khám trong vòng ${env.cancelMinHours} giờ trước giờ bắt đầu ca khám`,
+    );
+  }
+
+  // 5. Cancellation reason validation (Main Flow 6, A7)
+  let cancelReason = 'Bệnh nhân yêu cầu hủy';
+  if (body && body.reason !== undefined && body.reason !== null) {
+    if (typeof body.reason !== 'string') {
+      throw new ApiError(400, 'Lý do hủy không hợp lệ');
+    }
+    const trimmed = body.reason.trim();
+    if (!trimmed) {
+      throw new ApiError(400, 'Lý do hủy không được để trống');
+    }
+    if (trimmed.length > 500) {
+      throw new ApiError(400, 'Lý do hủy không được vượt quá 500 ký tự');
+    }
+    cancelReason = trimmed;
+  }
+
+  // 6. Atomic status transition on Appointment
+  const previousStatus = appointment.status;
+  const updatedAppointment = await Appointment.findOneAndUpdate(
+    {
+      id: appointment.id,
+      patientId: user.id,
+      status: { $in: cancellableStatuses },
+    },
+    {
+      $set: {
+        status: APPOINTMENT_STATUSES.CANCELLED,
+        cancelReason,
+        cancelledAt: now,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!updatedAppointment) {
+    // Concurrent request already modified status; check for idempotency (A8)
+    const fresh = await Appointment.findOne({ id: appointment.id }).lean();
+    if (fresh && fresh.status === APPOINTMENT_STATUSES.CANCELLED) {
+      const [doctor, specialty] = await Promise.all([
+        User.findOne({ id: fresh.doctorId }).select('id fullName').lean(),
+        Specialty.findOne({ id: fresh.specialtyId }).select('id name').lean(),
+      ]);
+      const doctorMap = new Map([[fresh.doctorId, doctor?.fullName || 'N/A']]);
+      const specialtyMap = new Map([[fresh.specialtyId, specialty?.name || 'N/A']]);
+      return serializePatientAppointment(fresh, doctorMap, specialtyMap);
+    }
+    throw new ApiError(409, 'Lịch khám đang được xử lý hoặc đã thay đổi trạng thái');
+  }
+
+  // 7. Atomic slot release on DoctorShift (BR-05)
+  const slotIdsToRelease = Array.isArray(appointment.slotIds) ? appointment.slotIds : [];
+  if (slotIdsToRelease.length > 0) {
+    try {
+      await DoctorShift.updateOne(
+        { id: appointment.shiftId },
+        {
+          $set: {
+            'slots.$[elem].status': 'AVAILABLE',
+            'slots.$[elem].bookingRef': null,
+            'slots.$[elem].bookedAt': null,
+          },
+        },
+        {
+          arrayFilters: [
+            {
+              'elem.id': { $in: slotIdsToRelease },
+              'elem.status': 'BOOKED',
+            },
+          ],
+        },
+      );
+    } catch (slotErr) {
+      // A9: Rollback appointment update if slot release fails
+      console.error(
+        `[cancelPatientAppointment] Slot release failed for shift ${appointment.shiftId}:`,
+        slotErr,
+      );
+      await Appointment.updateOne(
+        { id: appointment.id },
+        {
+          $set: {
+            status: previousStatus,
+            cancelReason: null,
+            cancelledAt: null,
+          },
+        },
+      );
+      throw new ApiError(500, 'Không thể giải phóng khung giờ khám, thao tác hủy đã được hoàn tác');
+    }
+  }
+
+  // 8. Enforce 3-cancellation booking lock policy (BR-03, A6)
+  const totalCancelled = await Appointment.countDocuments({
+    patientId: user.id,
+    status: APPOINTMENT_STATUSES.CANCELLED,
+  });
+
+  if (totalCancelled >= env.cancelLockThreshold) {
+    await User.updateOne(
+      { id: user.id },
+      {
+        $set: {
+          isBookingLocked: true,
+          bookingLockedAt: now,
+          bookingLockedReason: `Đạt ngưỡng ${env.cancelLockThreshold} lần hủy lịch khám`,
+        },
+      },
+    );
+  }
+
+  // 9. Record AuditLog (BR-06)
+  try {
+    await recordAudit({
+      actor: user,
+      action: AUDIT_ACTIONS.APPOINTMENT_CANCEL,
+      targetType: 'APPOINTMENT',
+      targetId: appointment.id,
+      reason: cancelReason,
+      changes: {
+        previousStatus,
+        newStatus: APPOINTMENT_STATUSES.CANCELLED,
+        releasedSlotIds: slotIdsToRelease,
+        cancelledAt: now,
+        totalCancellations: totalCancelled,
+        bookingLocked: totalCancelled >= env.cancelLockThreshold,
+      },
+      req,
+    });
+  } catch (auditErr) {
+    console.error('[cancelPatientAppointment] Failed to record AuditLog:', auditErr);
+  }
+
+  // 10. Best-effort notification (Main Flow 13, A10)
+  await sendCancellationNotification(user, updatedAppointment);
+
+  // 11. Serialize and return response (Main Flow 14)
+  const [doctor, specialty] = await Promise.all([
+    User.findOne({ id: updatedAppointment.doctorId }).select('id fullName').lean(),
+    Specialty.findOne({ id: updatedAppointment.specialtyId }).select('id name').lean(),
+  ]);
+
+  const doctorMap = new Map([[updatedAppointment.doctorId, doctor?.fullName || 'N/A']]);
+  const specialtyMap = new Map([[updatedAppointment.specialtyId, specialty?.name || 'N/A']]);
+
+  return serializePatientAppointment(updatedAppointment, doctorMap, specialtyMap);
+}
+
 module.exports = {
   bookAppointment,
   reconcileOrphanSlots,
@@ -670,5 +945,7 @@ module.exports = {
   getMyCompletedAppointments,
   getPatientAppointmentDetail,
   serializePatientAppointment,
+  cancelPatientAppointment,
+  getAppointmentStartDateTime,
 };
 

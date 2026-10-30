@@ -26,6 +26,13 @@ router.get(
   patientAppointmentController.getMyCompletedAppointments,
 );
 
+router.put(
+  '/cancel/:id',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  patientAppointmentController.cancelAppointment,
+);
+
 router.get(
   '/:id',
   authenticate,
