@@ -64,7 +64,34 @@ const uploadResult = async (doctor, assignmentId, file) => {
       const current = await GroupHealthAssignment.findOne({ id: assignment.id, doctorId: doctor.id }).lean();
       if (!current) throw new ApiError(404, 'Assignment not found');
       const nextVersion = Number(current.resultVersion || 0) + 1;
-      const updated = await GroupHealthAssignment.findOneAndUpdate({ id: assignment.id, doctorId: doctor.id, resultVersion: current.resultVersion }, { $set: { resultVersion: nextVersion, resultStatus: 'UPLOADED' }, $push: { resultFiles: { fileId, version: nextVersion, originalName: info.originalName, mimeType: info.mimeType, size: file.size, uploadedBy: doctor.id, uploadedAt: new Date(), reviewStatus: 'PENDING_ADMIN_REVIEW' } } }, { new: true, runValidators: true }).lean();
+      const updated = await GroupHealthAssignment.findOneAndUpdate(
+        { id: assignment.id, doctorId: doctor.id, resultVersion: current.resultVersion },
+        {
+          $set: {
+            resultVersion: nextVersion,
+            resultStatus: 'UPLOADED',
+            reviewedBy: null,
+            reviewedAt: null,
+            reviewNote: '',
+          },
+          $push: {
+            resultFiles: {
+              fileId,
+              version: nextVersion,
+              originalName: info.originalName,
+              mimeType: info.mimeType,
+              size: file.size,
+              uploadedBy: doctor.id,
+              uploadedAt: new Date(),
+              reviewStatus: 'PENDING_ADMIN_REVIEW',
+              reviewedBy: null,
+              reviewedAt: null,
+              reviewNote: '',
+            },
+          },
+        },
+        { returnDocument: 'after', runValidators: true },
+      ).lean();
       if (updated) return serialize({ ...await loadAssignment(doctor, assignment.id), assignment: updated });
     }
     throw new ApiError(409, 'Could not allocate a result file version; please retry');

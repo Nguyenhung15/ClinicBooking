@@ -7,6 +7,9 @@ const DoctorShift = require('./doctorShift.model');
 const Appointment = require('./appointment.model');
 const Prescription = require('./prescription.model');
 const PaymentTransaction = require('./paymentTransaction.model');
+const GroupHealthRequest = require('./GroupHealthRequest');
+const GroupHealthAssignment = require('./GroupHealthAssignment');
+const ShiftCancellationRequest = require('./ShiftCancellationRequest');
 
 module.exports = {
   Counter,
@@ -20,5 +23,8 @@ module.exports = {
   Appointment,
   Prescription,
   PaymentTransaction,
+  GroupHealthRequest,
+  GroupHealthAssignment,
+  ShiftCancellationRequest,
 };
 
