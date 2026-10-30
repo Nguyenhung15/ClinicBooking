@@ -19,6 +19,7 @@ const {
 const { ROLES, APPOINTMENT_STATUSES, AUDIT_ACTIONS } = require('../src/constants/enums');
 const { signAccessToken } = require('../src/utils/jwt');
 const env = require('../src/config/env');
+const { getAppointmentStartDateTime } = require('../src/services/patientAppointment.service');
 
 let server;
 let baseUrl;
@@ -602,6 +603,32 @@ describe('UC-PAT-06: Cancel Appointment – Hủy lịch khám (/appointments/ca
     // Patient3 vẫn xem được danh sách lịch sử lịch hẹn bình thường
     const historyRes = await apiRequest('GET', '/appointments/my-completed', { token: patient3Token });
     assert.strictEqual(historyRes.status, 200);
+
+    // Kiểm tra bookingLockedUntil đúng 24 giờ kể từ bookingLockedAt
+    assert.ok(p3User.bookingLockedUntil, 'Phải có bookingLockedUntil');
+    const diffLock = new Date(p3User.bookingLockedUntil).getTime() - new Date(p3User.bookingLockedAt).getTime();
+    assert.strictEqual(diffLock, 24 * 3600 * 1000, 'Thời hạn khóa đặt lịch phải đúng 24 giờ');
+
+    // Sau khi 24 giờ trôi qua (bookingLockedUntil <= now): Patient được phép đặt lịch lại bình thường
+    await User.updateOne(
+      { id: patient3.id },
+      { $set: { bookingLockedUntil: new Date(Date.now() - 1000) } },
+    );
+
+    const unlockBookRes = await apiRequest(
+      'POST',
+      `/appointments/create?specialtyId=${specialty1.id}&doctorId=${doctor1.id}`,
+      {
+        token: patient3Token,
+        body: {
+          shiftId: 107,
+          patients: [{ fullName: 'Bệnh Nhân Ba', gender: 'Male' }],
+          appointment: { reason: 'Khám lại sau khi hết thời hạn khóa' },
+        },
+      },
+    );
+    assert.strictEqual(unlockBookRes.status, 201, 'Sau khi hết 24h khóa, đặt lịch phải thành công');
+    assert.strictEqual(unlockBookRes.body.success, true);
   });
 
   it('13. BR-06: Hệ thống ghi AuditLog đầy đủ khi hủy lịch hẹn', async () => {
@@ -707,5 +734,131 @@ describe('UC-PAT-06: Cancel Appointment – Hủy lịch khám (/appointments/ca
     const finalShift = await DoctorShift.findOne({ id: shift.id }).lean();
     assert.strictEqual(finalShift.slots[0].status, 'AVAILABLE');
     assert.strictEqual(finalShift.slots[0].bookingRef, null);
+  });
+
+  it('16. LOW-01: Mốc biên chính xác đúng 24.0 giờ – được chấp nhận hủy thành công và giải phóng slot', async () => {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 9);
+    const dateStr = formatISODate(futureDate);
+    const timeStr = '10:00';
+
+    const shift = await DoctorShift.create({
+      id: 110,
+      doctorId: doctor1.id,
+      date: dateStr,
+      shift: 'MORNING',
+      startTime: timeStr,
+      endTime: '11:00',
+      slots: [{ id: 1, slotNumber: 1, startTime: timeStr, endTime: '10:45', status: 'BOOKED', bookingRef: 'APPT110', bookedAt: new Date() }],
+    });
+
+    const appointment = await Appointment.create({
+      id: 110,
+      appointmentNo: 'APPT110',
+      patientId: patient1.id,
+      doctorId: doctor1.id,
+      specialtyId: specialty1.id,
+      shiftId: shift.id,
+      slotIds: [1],
+      appointmentDate: dateStr,
+      appointmentTime: timeStr,
+      status: APPOINTMENT_STATUSES.CONFIRMED,
+      patients: [{ fullName: 'Bệnh Nhân Một' }],
+    });
+
+    // Mock thời điểm gửi request đúng 24 giờ 00 phút trước giờ khám
+    const apptStart = getAppointmentStartDateTime(dateStr, timeStr, env.clinicTimeZone);
+    const exact24hBefore = new Date(apptStart.getTime() - 24 * 3600 * 1000);
+
+    const RealDate = global.Date;
+    class MockDate extends RealDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(exact24hBefore.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() {
+        return exact24hBefore.getTime();
+      }
+    }
+
+    try {
+      global.Date = MockDate;
+      // Sign fresh token inside mocked timeframe so JWT is not considered expired
+      const validTokenAtMockTime = signAccessToken(patient1);
+
+      const res = await apiRequest('PUT', `/appointments/cancel/${appointment.id}`, {
+        token: validTokenAtMockTime,
+        body: { reason: 'Hủy đúng mốc 24h' },
+      });
+
+      assert.strictEqual(res.status, 200, 'Đúng 24 giờ phải được chấp nhận hủy');
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.data.status, APPOINTMENT_STATUSES.CANCELLED);
+      assert.strictEqual(res.body.data.cancelReason, 'Hủy đúng mốc 24h');
+
+      const updatedShift = await DoctorShift.findOne({ id: shift.id }).lean();
+      assert.strictEqual(updatedShift.slots[0].status, 'AVAILABLE');
+      assert.strictEqual(updatedShift.slots[0].bookingRef, null);
+    } finally {
+      global.Date = RealDate;
+    }
+  });
+
+  it('17. MEDIUM-01: Chỉ giải phóng slot có bookingRef khớp với appointment, không giải phóng slot có bookingRef khác', async () => {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const dateStr = formatISODate(futureDate);
+
+    // Ca trực có 2 slots: slot 1 mang bookingRef APPT111, slot 2 mang bookingRef OTHER_REF
+    const shift = await DoctorShift.create({
+      id: 111,
+      doctorId: doctor1.id,
+      date: dateStr,
+      shift: 'MORNING',
+      startTime: '08:00',
+      endTime: '10:00',
+      slots: [
+        { id: 1, slotNumber: 1, startTime: '08:00', endTime: '08:45', status: 'BOOKED', bookingRef: 'APPT111', bookedAt: new Date() },
+        { id: 2, slotNumber: 2, startTime: '09:00', endTime: '09:45', status: 'BOOKED', bookingRef: 'OTHER_REF_999', bookedAt: new Date() },
+      ],
+    });
+
+    const appointment = await Appointment.create({
+      id: 111,
+      appointmentNo: 'APPT111',
+      patientId: patient1.id,
+      doctorId: doctor1.id,
+      specialtyId: specialty1.id,
+      shiftId: shift.id,
+      slotIds: [1, 2], // Chứa cả slot 1 và slot 2
+      appointmentDate: dateStr,
+      appointmentTime: '08:00',
+      status: APPOINTMENT_STATUSES.CONFIRMED,
+      patients: [{ fullName: 'Bệnh Nhân Một' }],
+    });
+
+    const res = await apiRequest('PUT', `/appointments/cancel/${appointment.id}`, {
+      token: patient1Token,
+      body: { reason: 'Hủy ca có slot lệch bookingRef' },
+    });
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.data.status, APPOINTMENT_STATUSES.CANCELLED);
+
+    const updatedShift = await DoctorShift.findOne({ id: shift.id }).lean();
+    const slot1 = updatedShift.slots.find((s) => s.id === 1);
+    const slot2 = updatedShift.slots.find((s) => s.id === 2);
+
+    // Slot 1 khớp bookingRef -> ĐƯỢC giải phóng
+    assert.strictEqual(slot1.status, 'AVAILABLE');
+    assert.strictEqual(slot1.bookingRef, null);
+
+    // Slot 2 lệch bookingRef -> KHÔNG ĐƯỢC giải phóng
+    assert.strictEqual(slot2.status, 'BOOKED');
+    assert.strictEqual(slot2.bookingRef, 'OTHER_REF_999');
   });
 });
