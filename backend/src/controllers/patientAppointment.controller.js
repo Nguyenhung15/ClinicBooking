@@ -17,3 +17,4 @@ const createAppointment = async (req, res) => {
 module.exports = {
   createAppointment,
 };
+
