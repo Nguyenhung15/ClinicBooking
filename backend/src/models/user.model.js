@@ -105,6 +105,8 @@ const userSchema = new mongoose.Schema(
   },
 );
 
+userSchema.index({ createdAt: 1, userType: 1 });
+
 userSchema.plugin(baseSchemaPlugin, {
   sequenceName: 'users',
   hiddenFields: ['password', 'temporaryPassword', 'temporaryPasswordExpiresAt'],
