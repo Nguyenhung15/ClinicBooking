@@ -282,3 +282,4 @@ describe('UC-PUB-01 & UC-PAT-03: Lịch ca trực khả dụng của bác sĩ (/
     assert.equal(Array.isArray(res.body.data), true);
   });
 });
+
