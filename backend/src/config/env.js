@@ -18,6 +18,10 @@ const env = {
   adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET || '',
   adminBootstrapRequireSecret:
     process.env.ADMIN_BOOTSTRAP_REQUIRE_SECRET === 'true',
+  maxPatientsPerAppointment:
+    Number(process.env.MAX_PATIENTS_PER_APPOINTMENT) || 4,
+  maxPendingAppointmentsPerPatient:
+    Number(process.env.MAX_PENDING_APPOINTMENTS_PER_PATIENT) || 5,
 };
 
 env.isProduction = env.nodeEnv === 'production';

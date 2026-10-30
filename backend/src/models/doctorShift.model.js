@@ -13,6 +13,14 @@ const shiftSlotSchema = new mongoose.Schema(
       enum: SLOT_STATUSES,
       default: 'AVAILABLE',
     },
+    bookingRef: {
+      type: String,
+      default: null,
+    },
+    bookedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: false },
 );
