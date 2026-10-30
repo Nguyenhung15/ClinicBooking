@@ -296,69 +296,74 @@ async function bookAppointment(user, query = {}, body = {}) {
   let appointment = null;
   let createError = null;
 
-  try {
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const appointmentNo = generateAppointmentNo();
-      try {
-        appointment = await Appointment.create({
-          appointmentNo,
-          patientId: user.id,
-          doctorId: doctor.id,
-          specialtyId: specialty.id,
-          shiftId: shift.id,
-          slotIds: reservedSlotIds,
-          appointmentDate: shift.date,
-          appointmentTime: firstSlotTime,
-          type: appointmentType,
-          status: 'PENDING_CONFIRMATION',
-          reason,
-          patients: snapshotPatients,
-        });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const appointmentNo = generateAppointmentNo();
+    try {
+      appointment = await Appointment.create({
+        appointmentNo,
+        patientId: user.id,
+        doctorId: doctor.id,
+        specialtyId: specialty.id,
+        shiftId: shift.id,
+        slotIds: reservedSlotIds,
+        appointmentDate: shift.date,
+        appointmentTime: firstSlotTime,
+        type: appointmentType,
+        status: 'PENDING_CONFIRMATION',
+        reason,
+        patients: snapshotPatients,
+      });
+      break;
+    } catch (err) {
+      if (err.code === 11000 && attempt < 3) {
+        continue; // Retry duplicate appointmentNo
+      }
+      createError = err;
+      break;
+    }
+  }
 
-        // Associated slot bookingRef with official appointmentNo
+  // Compensate / Rollback slots ONLY IF Appointment was NOT created
+  if (!appointment) {
+    if (reservationHeld) {
+      try {
         await DoctorShift.updateOne(
           { id: shift.id },
           {
             $set: {
-              'slots.$[elem].bookingRef': appointmentNo,
+              'slots.$[elem].status': 'AVAILABLE',
+              'slots.$[elem].bookingRef': null,
+              'slots.$[elem].bookedAt': null,
             },
           },
           {
-            arrayFilters: [{ 'elem.id': { $in: reservedSlotIds } }],
+            arrayFilters: [{ 'elem.id': { $in: reservedSlotIds }, 'elem.bookingRef': holdToken }],
           },
         );
-
-        break;
-      } catch (err) {
-        if (err.code === 11000 && attempt < 3) {
-          continue; // Retry duplicate appointmentNo
-        }
-        createError = err;
-        break;
+      } catch (rollbackErr) {
+        console.error('Failed to rollback slots on appointment creation error:', rollbackErr);
       }
     }
-  } catch (err) {
-    createError = err;
+    throw createError || new ApiError(500, 'Không thể khởi tạo lịch hẹn, vui lòng thử lại');
   }
 
-  // Compensate / Rollback slots if appointment creation failed
-  if (!appointment || createError) {
-    if (reservationHeld) {
-      await DoctorShift.updateOne(
-        { id: shift.id },
-        {
-          $set: {
-            'slots.$[elem].status': 'AVAILABLE',
-            'slots.$[elem].bookingRef': null,
-            'slots.$[elem].bookedAt': null,
-          },
+  // Appointment created successfully: DO NOT rollback slots from this point onwards.
+  // Associate slot bookingRef with official appointmentNo in isolated try/catch.
+  try {
+    await DoctorShift.updateOne(
+      { id: shift.id },
+      {
+        $set: {
+          'slots.$[elem].bookingRef': appointment.appointmentNo,
         },
-        {
-          arrayFilters: [{ 'elem.id': { $in: reservedSlotIds }, 'elem.bookingRef': holdToken }],
-        },
-      );
-    }
-    throw createError || new ApiError(500, 'Không thể khởi tạo lịch hẹn, vui lòng thử lại');
+      },
+      {
+        arrayFilters: [{ 'elem.id': { $in: reservedSlotIds }, 'elem.bookingRef': holdToken }],
+      },
+    );
+  } catch (updateRefErr) {
+    // Log failure, but do NOT fail or rollback appointment; reconciliation handles via slotIds
+    console.error('Failed to update slot bookingRef to appointmentNo:', updateRefErr);
   }
 
   // 10. Best-effort auto-save new patient profiles (failures will not roll back appointment)
@@ -442,8 +447,17 @@ async function reconcileOrphanSlots(maxAgeMinutes = 10) {
       });
 
       if (!appointmentExists) {
-        await DoctorShift.updateOne(
-          { id: s.id },
+        const updateRes = await DoctorShift.updateOne(
+          {
+            id: s.id,
+            slots: {
+              $elemMatch: {
+                id: slot.id,
+                status: 'BOOKED',
+                bookedAt: slot.bookedAt,
+              },
+            },
+          },
           {
             $set: {
               'slots.$[elem].status': 'AVAILABLE',
@@ -452,10 +466,18 @@ async function reconcileOrphanSlots(maxAgeMinutes = 10) {
             },
           },
           {
-            arrayFilters: [{ 'elem.id': slot.id }],
+            arrayFilters: [
+              {
+                'elem.id': slot.id,
+                'elem.status': 'BOOKED',
+                'elem.bookedAt': slot.bookedAt,
+              },
+            ],
           },
         );
-        reconciledCount += 1;
+        if (updateRes.modifiedCount === 1) {
+          reconciledCount += 1;
+        }
       }
     }
   }

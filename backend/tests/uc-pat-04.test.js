@@ -294,6 +294,34 @@ describe('UC-PAT-04: Đặt lịch khám nguyên tử (POST /appointments/create
       },
     );
     assert.equal(tooManyPatients.status, 400);
+
+    // Past shift date
+    const pastShift = await DoctorShift.create({
+      doctorId,
+      date: '2020-01-01',
+      shift: 'MORNING',
+      startTime: '08:00',
+      endTime: '12:00',
+      maxPatients: 1,
+      status: 'ACTIVE',
+      slots: [
+        { id: 2999, slotNumber: 1, startTime: '08:00', endTime: '08:45', status: 'AVAILABLE' },
+      ],
+    });
+
+    const pastDateRes = await apiRequest(
+      'POST',
+      `/appointments/create?specialtyId=${specialty1Id}`,
+      {
+        token: patient1Token,
+        body: {
+          shiftId: pastShift.id,
+          patients: [{ fullName: 'Test Past' }],
+        },
+      },
+    );
+    assert.equal(pastDateRes.status, 400);
+    assert.equal(pastDateRes.body.message, 'Không thể đặt lịch cho ca trực trong quá khứ');
   });
 
   it('4. Profile guards: rejects using another users profile or an archived profile', async () => {
@@ -582,6 +610,107 @@ describe('UC-PAT-04: Đặt lịch khám nguyên tử (POST /appointments/create
       assert.equal(slot.status, 'BOOKED');
       assert.ok(slot.bookingRef);
       assert.match(slot.bookingRef, /^OFF[A-F0-9]{8}$/);
+    }
+  });
+  it('10. Fault Tolerance: if updating bookingRef fails after Appointment.create, Appointment remains in DB and slots remain BOOKED', async () => {
+    const shift = await DoctorShift.create({
+      doctorId,
+      date: '2099-12-01',
+      shift: 'MORNING',
+      startTime: '08:00',
+      endTime: '12:00',
+      maxPatients: 1,
+      status: 'ACTIVE',
+      slots: [
+        { id: 9001, slotNumber: 1, startTime: '08:00', endTime: '08:45', status: 'AVAILABLE' },
+      ],
+    });
+
+    const realUpdateOne = DoctorShift.updateOne;
+    let failRefUpdate = true;
+    DoctorShift.updateOne = async function (filter, update, options) {
+      if (failRefUpdate && update?.$set?.['slots.$[elem].bookingRef'] && !update?.$set?.['slots.$[elem].status']) {
+        throw new Error('Simulated network glitch during bookingRef update');
+      }
+      return realUpdateOne.call(this, filter, update, options);
+    };
+
+    try {
+      const res = await apiRequest('POST', `/appointments/create?specialtyId=${specialty1Id}`, {
+        token: patient2Token,
+        body: {
+          shiftId: shift.id,
+          patients: [{ fullName: 'Patient Safe' }],
+        },
+      });
+
+      // Request succeeds (201) because Appointment was created successfully
+      assert.equal(res.status, 201);
+      assert.ok(res.body.data.appointmentNo);
+
+      // Verify Appointment exists in DB
+      const appt = await Appointment.findOne({ appointmentNo: res.body.data.appointmentNo });
+      assert.ok(appt);
+      assert.equal(appt.status, 'PENDING_CONFIRMATION');
+
+      // Verify slot in DB is STILL BOOKED (was NOT rolled back to AVAILABLE!)
+      const freshShift = await DoctorShift.findOne({ id: shift.id });
+      const slot = freshShift.slots.find((s) => s.id === 9001);
+      assert.equal(slot.status, 'BOOKED');
+    } finally {
+      DoctorShift.updateOne = realUpdateOne;
+    }
+  });
+
+  it('11. Reconciliation guard: if slot bookedAt changed after initial read, reconcileOrphanSlots does NOT release it', async () => {
+    const shift = await DoctorShift.create({
+      doctorId,
+      date: '2099-12-05',
+      shift: 'MORNING',
+      startTime: '08:00',
+      endTime: '12:00',
+      maxPatients: 1,
+      status: 'ACTIVE',
+      slots: [
+        {
+          id: 9101,
+          slotNumber: 1,
+          startTime: '08:00',
+          endTime: '08:45',
+          status: 'BOOKED',
+          bookingRef: 'OLD_STALE_REF',
+          bookedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 mins ago
+        },
+      ],
+    });
+
+    // Intercept Appointment.exists: during reconcile check, simulate another process re-booking the slot with a new bookedAt
+    const realExists = Appointment.exists;
+    Appointment.exists = async function (filter) {
+      // Simulate concurrent re-booking right before updateOne runs
+      await DoctorShift.updateOne(
+        { id: shift.id, 'slots.id': 9101 },
+        {
+          $set: {
+            'slots.$.bookedAt': new Date(), // updated to NOW
+            'slots.$.bookingRef': 'NEW_REBOOKED_REF',
+          },
+        },
+      );
+      return realExists.call(this, filter); // returns null because no appointment exists
+    };
+
+    try {
+      const result = await patientAppointmentService.reconcileOrphanSlots(10);
+      assert.equal(result.reconciledCount, 0); // 0 slots reconciled because bookedAt mismatched
+
+      // Verify slot is STILL BOOKED and carries new bookingRef
+      const fresh = await DoctorShift.findOne({ id: shift.id });
+      const slot = fresh.slots.find((s) => s.id === 9101);
+      assert.equal(slot.status, 'BOOKED');
+      assert.equal(slot.bookingRef, 'NEW_REBOOKED_REF');
+    } finally {
+      Appointment.exists = realExists;
     }
   });
 });
