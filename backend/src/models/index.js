@@ -10,6 +10,8 @@ const PaymentTransaction = require('./paymentTransaction.model');
 const GroupHealthRequest = require('./GroupHealthRequest');
 const GroupHealthAssignment = require('./GroupHealthAssignment');
 const ShiftCancellationRequest = require('./ShiftCancellationRequest');
+const RssSource = require('./rssSource.model');
+const News = require('./news.model');
 
 module.exports = {
   Counter,
@@ -26,5 +28,7 @@ module.exports = {
   GroupHealthRequest,
   GroupHealthAssignment,
   ShiftCancellationRequest,
+  RssSource,
+  News,
 };
 

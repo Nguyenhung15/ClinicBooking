@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { connectDB, disconnectDB } = require('../config/db');
-const { User, Specialty, syncSequenceFloor } = require('../models');
-const { ROLES, GENDERS, AUTH_PROVIDERS } = require('../constants/enums');
+const { User, Specialty, RssSource, News, syncSequenceFloor } = require('../models');
+const { ROLES, GENDERS, AUTH_PROVIDERS, RSS_SOURCE_STATUSES } = require('../constants/enums');
 
 const DEFAULT_DEV_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || '123456';
 
@@ -243,6 +243,50 @@ const SEED_USERS = [
   },
 ];
 
+const SEED_RSS_SOURCES = [
+  {
+    id: 1,
+    name: 'VnExpress Sức Khỏe',
+    url: 'https://vnexpress.net/rss/suc-khoe.rss',
+    category: 'Sức khỏe tổng quát',
+    status: RSS_SOURCE_STATUSES.ACTIVE,
+  },
+  {
+    id: 2,
+    name: 'Báo Sức Khỏe & Đời Sống',
+    url: 'https://suckhoedoisong.vn/rss/y-te.rss',
+    category: 'Y tế & Phòng bệnh',
+    status: RSS_SOURCE_STATUSES.ACTIVE,
+  },
+];
+
+const SEED_NEWS = [
+  {
+    sourceId: 1,
+    title: '5 thói quen buổi sáng giúp bảo vệ hệ tim mạch bền vững',
+    link: 'https://vnexpress.net/5-thoi-quen-buoi-sang-bao-ve-he-tim-mach-100001.html',
+    summary:
+      'Uống đủ nước ấm, vận động nhẹ nhàng 20 phút và kiểm soát lượng muối trong bữa sáng giúp ổn định huyết áp và giảm nguy cơ bệnh lý tim mạch.',
+    pubDate: new Date('2026-10-28T07:30:00.000Z'),
+  },
+  {
+    sourceId: 1,
+    title: 'Dấu hiệu sớm cảnh báo thoái hóa khớp gối ở người làm việc văn phòng',
+    link: 'https://vnexpress.net/dau-hieu-som-thoai-hoa-khop-goi-van-phong-100002.html',
+    summary:
+      'Ngồi lâu một tư thế khiến sụn khớp thiếu dịch nuôi dưỡng. Các bác sĩ Cơ Xương Khớp khuyến nghị đứng dậy vận động sau mỗi 45-60 phút làm việc.',
+    pubDate: new Date('2026-10-29T08:15:00.000Z'),
+  },
+  {
+    sourceId: 2,
+    title: 'Lịch khám sức khỏe định kỳ khuyến nghị cho từng nhóm tuổi',
+    link: 'https://suckhoedoisong.vn/lich-kham-suc-khoe-dinh-ky-theo-nhom-tuoi-100003.html',
+    summary:
+      'Tầm soát định kỳ 6-12 tháng một lần giúp phát hiện sớm rối loạn chuyển hóa, tăng huyết áp và các bệnh lý nội khoa tiềm ẩn trước khi xuất hiện biến chứng.',
+    pubDate: new Date('2026-10-30T06:00:00.000Z'),
+  },
+];
+
 async function runSeed() {
   await connectDB();
 
@@ -276,6 +320,26 @@ async function runSeed() {
 
     const maxUser = await User.findOne().sort({ id: -1 }).lean();
     await syncSequenceFloor('users', maxUser ? maxUser.id : 250000);
+
+    console.log('Seeding RSS sources & sample health news...');
+    for (const src of SEED_RSS_SOURCES) {
+      await RssSource.findOneAndUpdate(
+        { id: src.id },
+        { $setOnInsert: src },
+        { upsert: true, returnDocument: 'after' },
+      );
+    }
+    const maxRssSource = await RssSource.findOne().sort({ id: -1 }).lean();
+    await syncSequenceFloor('rss_sources', maxRssSource ? maxRssSource.id : 10);
+
+    for (const article of SEED_NEWS) {
+      const existingNews = await News.findOne({ link: article.link }).lean();
+      if (!existingNews) {
+        await News.create(article);
+      }
+    }
+    const maxNews = await News.findOne().sort({ id: -1 }).lean();
+    await syncSequenceFloor('news', maxNews ? maxNews.id : 10);
 
     console.log('Seed completed successfully!');
     console.log(`Default dev password for newly seeded accounts: ${DEFAULT_DEV_PASSWORD}`);

@@ -13,6 +13,7 @@ const doctorShiftRoutes = require('./doctorShift.routes');
 const doctorAppointmentRoutes = require('./doctorAppointment.routes');
 const doctorPrescriptionRoutes = require('./doctorPrescription.routes');
 const doctorGroupHealthRoutes = require('./doctorGroupHealth.routes');
+const rssNewsRoutes = require('./rssNews.routes');
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/admin/group-health', adminGroupHealthRoutes);
 router.use('/admin/analytics', adminAnalyticsRoutes);
+router.use('/admin/rss-sources', rssNewsRoutes);
 router.use('/admin', adminRoutes);
 router.use('/doctors', doctorRoutes);
 router.use('/receptionists', receptionistRoutes);
@@ -30,5 +32,6 @@ router.use('/shifts', doctorShiftRoutes);
 router.use('/appointments', doctorAppointmentRoutes);
 router.use('/prescriptions', doctorPrescriptionRoutes);
 router.use('/group-health', doctorGroupHealthRoutes);
+router.use('/rss-sources', rssNewsRoutes);
 
 module.exports = router;
