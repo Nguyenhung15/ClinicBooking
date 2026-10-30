@@ -16,6 +16,8 @@ const groupHealthRequestSchema = new mongoose.Schema(
     createdBy: { type: Number, default: null },
     approvedBy: { type: Number, default: null },
     approvedAt: { type: Date, default: null },
+    completedBy: { type: Number, default: null },
+    completedAt: { type: Date, default: null },
     sourceFileId: { type: mongoose.Schema.Types.ObjectId, default: null },
     sourceFileName: { type: String, default: '' },
     sourceFileSize: { type: Number, default: null },
