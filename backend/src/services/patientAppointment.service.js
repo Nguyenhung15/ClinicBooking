@@ -821,7 +821,7 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
         cancelledAt: now,
       },
     },
-    { new: true },
+    { returnDocument: 'after' },
   ).lean();
 
   if (!updatedAppointment) {
