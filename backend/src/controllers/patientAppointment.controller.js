@@ -44,9 +44,25 @@ const getAppointmentDetail = async (req, res) => {
   });
 };
 
+
+const cancelAppointment = async (req, res) => {
+  const result = await patientAppointmentService.cancelPatientAppointment(
+    req.user,
+    req.params.id,
+    req.body,
+    req,
+  );
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Hủy lịch khám thành công',
+    data: result,
+  });
+};
+
 module.exports = {
   createAppointment,
   getMyUpcomingAppointments,
   getMyCompletedAppointments,
   getAppointmentDetail,
+  cancelAppointment,
 };
