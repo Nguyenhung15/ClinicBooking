@@ -87,6 +87,14 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    cancelReason: {
+      type: String,
+      default: null,
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
     joinCode: {
       type: String,
       default: null,

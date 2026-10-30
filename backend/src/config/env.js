@@ -22,6 +22,9 @@ const env = {
     Number(process.env.MAX_PATIENTS_PER_APPOINTMENT) || 4,
   maxPendingAppointmentsPerPatient:
     Number(process.env.MAX_PENDING_APPOINTMENTS_PER_PATIENT) || 5,
+  cancelMinHours: Number(process.env.CANCEL_MIN_HOURS) || 24,
+  cancelLockThreshold: Number(process.env.CANCEL_LOCK_THRESHOLD) || 3,
+  bookingLockDurationHours: Number(process.env.BOOKING_LOCK_DURATION_HOURS) || 24,
 };
 
 env.isProduction = env.nodeEnv === 'production';
