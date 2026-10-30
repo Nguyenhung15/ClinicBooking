@@ -46,3 +46,4 @@ module.exports = {
   updateProfile,
   deleteProfile,
 };
+

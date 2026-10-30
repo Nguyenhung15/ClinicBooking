@@ -12,3 +12,4 @@ router.put('/update/:id', authenticate, authorize(ROLES.PATIENT), patientProfile
 router.delete('/delete/:id', authenticate, authorize(ROLES.PATIENT), patientProfileController.deleteProfile);
 
 module.exports = router;
+
