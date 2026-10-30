@@ -12,6 +12,7 @@ const GroupHealthAssignment = require('./GroupHealthAssignment');
 const ShiftCancellationRequest = require('./ShiftCancellationRequest');
 const RssSource = require('./rssSource.model');
 const News = require('./news.model');
+const BootstrapState = require('./bootstrapState.model');
 
 module.exports = {
   Counter,
@@ -30,5 +31,6 @@ module.exports = {
   ShiftCancellationRequest,
   RssSource,
   News,
+  BootstrapState,
 };
 

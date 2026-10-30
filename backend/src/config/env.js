@@ -15,6 +15,9 @@ const env = {
   frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, ''),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'),
+  adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET || '',
+  adminBootstrapRequireSecret:
+    process.env.ADMIN_BOOTSTRAP_REQUIRE_SECRET === 'true',
 };
 
 env.isProduction = env.nodeEnv === 'production';
