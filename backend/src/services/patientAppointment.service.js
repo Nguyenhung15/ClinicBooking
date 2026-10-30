@@ -5,8 +5,9 @@ const {
   User,
   Specialty,
   PatientProfile,
+  Prescription,
 } = require('../models');
-const { ROLES } = require('../constants/enums');
+const { ROLES, APPOINTMENT_STATUSES } = require('../constants/enums');
 const ApiError = require('../utils/ApiError');
 const { parsePositiveInt, normalizeGender } = require('../utils/normalizers');
 const patientProfileService = require('./patientProfile.service');
@@ -485,9 +486,189 @@ async function reconcileOrphanSlots(maxAgeMinutes = 10) {
   return { reconciledCount };
 }
 
+/**
+ * Helper to serialize an appointment for Patient response,
+ * matching frontend normalizeAppointment contract.
+ */
+function serializePatientAppointment(
+  appointment,
+  doctorMap = new Map(),
+  specialtyMap = new Map(),
+  prescriptions = [],
+) {
+  const doctorName = doctorMap.get(appointment.doctorId) || 'N/A';
+  const specialtyName = specialtyMap.get(appointment.specialtyId) || 'N/A';
+  const primaryPatientName = appointment.patients?.[0]?.fullName || 'N/A';
+
+  const serialized = {
+    id: appointment.id,
+    appointmentNo: appointment.appointmentNo,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    status: appointment.status,
+    patientName: primaryPatientName,
+    doctorId: appointment.doctorId,
+    doctorName,
+    specialtyId: appointment.specialtyId,
+    specialtyName,
+    shiftId: appointment.shiftId,
+    reason: appointment.reason || undefined,
+    type: appointment.type || 'OFFLINE',
+    patients: (appointment.patients || []).map((p) => ({
+      id: p.id,
+      fullName: p.fullName,
+      gender: p.gender,
+      phoneNumber: p.phoneNumber,
+      dob: p.dob,
+      relationship: p.relationship,
+    })),
+    createdAt: appointment.createdAt
+      ? new Date(appointment.createdAt).toISOString()
+      : undefined,
+    updatedAt: appointment.updatedAt
+      ? new Date(appointment.updatedAt).toISOString()
+      : undefined,
+  };
+
+  if (prescriptions && prescriptions.length > 0) {
+    serialized.prescriptions = prescriptions.map((p) => ({
+      id: p.id,
+      medicineName: p.medicineName,
+      dosage: p.dosage,
+      duration: p.duration,
+      instructions: p.instructions,
+    }));
+  }
+
+  return serialized;
+}
+
+/**
+ * UC-PAT-05: Get upcoming appointments for current Patient.
+ * Statuses: PENDING_CONFIRMATION, CONFIRMED, CHECKED_IN.
+ * Ordered by appointmentDate ASC, appointmentTime ASC.
+ */
+async function getMyUpcomingAppointments(user) {
+  if (!user || user.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền truy cập');
+  }
+
+  const upcomingStatuses = [
+    APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
+    APPOINTMENT_STATUSES.CONFIRMED,
+    APPOINTMENT_STATUSES.CHECKED_IN,
+  ];
+
+  const appointments = await Appointment.find({
+    patientId: user.id,
+    status: { $in: upcomingStatuses },
+  })
+    .sort({ appointmentDate: 1, appointmentTime: 1, id: 1 })
+    .lean();
+
+  if (!appointments.length) {
+    return [];
+  }
+
+  const doctorIds = [...new Set(appointments.map((a) => a.doctorId))];
+  const specialtyIds = [...new Set(appointments.map((a) => a.specialtyId))];
+
+  const [doctors, specialties] = await Promise.all([
+    User.find({ id: { $in: doctorIds } }).select('id fullName').lean(),
+    Specialty.find({ id: { $in: specialtyIds } }).select('id name').lean(),
+  ]);
+
+  const doctorMap = new Map(doctors.map((d) => [d.id, d.fullName]));
+  const specialtyMap = new Map(specialties.map((s) => [s.id, s.name]));
+
+  return appointments.map((a) =>
+    serializePatientAppointment(a, doctorMap, specialtyMap),
+  );
+}
+
+/**
+ * UC-PAT-05: Get history/completed appointments for current Patient.
+ * Statuses: COMPLETED.
+ * Ordered by appointmentDate DESC, appointmentTime DESC.
+ */
+async function getMyCompletedAppointments(user) {
+  if (!user || user.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền truy cập');
+  }
+
+  const completedStatuses = [APPOINTMENT_STATUSES.COMPLETED];
+
+  const appointments = await Appointment.find({
+    patientId: user.id,
+    status: { $in: completedStatuses },
+  })
+    .sort({ appointmentDate: -1, appointmentTime: -1, id: -1 })
+    .lean();
+
+  if (!appointments.length) {
+    return [];
+  }
+
+  const doctorIds = [...new Set(appointments.map((a) => a.doctorId))];
+  const specialtyIds = [...new Set(appointments.map((a) => a.specialtyId))];
+
+  const [doctors, specialties] = await Promise.all([
+    User.find({ id: { $in: doctorIds } }).select('id fullName').lean(),
+    Specialty.find({ id: { $in: specialtyIds } }).select('id name').lean(),
+  ]);
+
+  const doctorMap = new Map(doctors.map((d) => [d.id, d.fullName]));
+  const specialtyMap = new Map(specialties.map((s) => [s.id, s.name]));
+
+  return appointments.map((a) =>
+    serializePatientAppointment(a, doctorMap, specialtyMap),
+  );
+}
+
+/**
+ * UC-PAT-05: Get single appointment detail for current Patient.
+ * Must belong to current Patient (patientId === user.id); otherwise 404.
+ */
+async function getPatientAppointmentDetail(user, appointmentId) {
+  if (!user || user.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền truy cập');
+  }
+
+  const id = parsePositiveInt(appointmentId, 'id');
+
+  const appointment = await Appointment.findOne({
+    id,
+    patientId: user.id,
+  }).lean();
+
+  if (!appointment) {
+    throw new ApiError(404, 'Không tìm thấy lịch hẹn');
+  }
+
+  const [doctor, specialty, prescriptions] = await Promise.all([
+    User.findOne({ id: appointment.doctorId }).select('id fullName').lean(),
+    Specialty.findOne({ id: appointment.specialtyId }).select('id name').lean(),
+    Prescription.find({ appointmentId: appointment.id }).sort({ id: 1 }).lean(),
+  ]);
+
+  const doctorMap = new Map([[appointment.doctorId, doctor?.fullName || 'N/A']]);
+  const specialtyMap = new Map([[appointment.specialtyId, specialty?.name || 'N/A']]);
+
+  return serializePatientAppointment(
+    appointment,
+    doctorMap,
+    specialtyMap,
+    prescriptions,
+  );
+}
+
 module.exports = {
   bookAppointment,
   reconcileOrphanSlots,
   generateAppointmentNo,
+  getMyUpcomingAppointments,
+  getMyCompletedAppointments,
+  getPatientAppointmentDetail,
+  serializePatientAppointment,
 };
 
