@@ -62,3 +62,4 @@ const PatientProfile = mongoose.model(
 );
 
 module.exports = PatientProfile;
+
