@@ -4,6 +4,8 @@ const { parsePositiveInt, normalizeGender } = require('../utils/normalizers');
 const { ROLES } = require('../constants/enums');
 const env = require('../config/env');
 
+const MAX_PROFILES_PER_USER = 10;
+
 const getTodayString = () => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: env.clinicTimeZone,
@@ -20,19 +22,32 @@ const validateDob = (dobInput) => {
   const dobStr = String(dobInput).trim();
   if (!dobStr) return null;
 
-  const parsed = Date.parse(dobStr);
-  if (Number.isNaN(parsed)) {
+  const parsed = new Date(dobStr);
+  if (Number.isNaN(parsed.getTime())) {
     throw new ApiError(400, 'Ngày sinh không hợp lệ');
   }
 
-  // If in YYYY-MM-DD format, verify against today in clinic timezone
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dobStr)) {
-    if (dobStr > getTodayString()) {
-      throw new ApiError(400, 'Ngày sinh không được lớn hơn ngày hiện tại');
-    }
+  const isoDate = parsed.toISOString().slice(0, 10);
+  const today = getTodayString();
+  if (isoDate > today) {
+    throw new ApiError(400, 'Ngày sinh không được lớn hơn ngày hiện tại');
   }
 
-  return dobStr;
+  return /^\d{4}-\d{2}-\d{2}$/.test(dobStr) ? dobStr : isoDate;
+};
+
+const validatePhoneNumber = (phoneInput) => {
+  if (phoneInput == null || String(phoneInput).trim() === '') return null;
+  const phone = String(phoneInput).trim();
+  // Validates common Vietnamese phone format: 10 digits starting with 0, or international +84...
+  const phoneRegex = /^(?:\+84|0)[1-9]\d{8}$/;
+  if (!phoneRegex.test(phone)) {
+    throw new ApiError(
+      400,
+      'Số điện thoại không hợp lệ (yêu cầu định dạng 10 chữ số, ví dụ 0901234567)',
+    );
+  }
+  return phone;
 };
 
 /**
@@ -67,10 +82,40 @@ async function getProfileById(user, profileId) {
 }
 
 /**
+ * Helper for appointment booking: ensure profile exists, belongs to owner, and is NOT archived.
+ */
+async function getActiveProfileForOwner(ownerId, profileId) {
+  const numericOwnerId = parsePositiveInt(ownerId, 'ownerId');
+  const numericId = parsePositiveInt(profileId, 'id');
+  const profile = await PatientProfile.findOne({
+    id: numericId,
+    ownerId: numericOwnerId,
+    isArchived: false,
+  });
+
+  if (!profile) {
+    throw new ApiError(
+      400,
+      `Hồ sơ bệnh nhân #${numericId} không tồn tại hoặc đã bị lưu trữ, không thể dùng để đặt lịch`,
+    );
+  }
+
+  return profile.toJSON();
+}
+
+/**
  * Create a new patient profile for the current patient user.
  */
 async function createProfile(user, payload = {}) {
   const ownerId = parsePositiveInt(user.id, 'userId');
+
+  const activeCount = await PatientProfile.countDocuments({ ownerId, isArchived: false });
+  if (activeCount >= MAX_PROFILES_PER_USER) {
+    throw new ApiError(
+      400,
+      `Mỗi tài khoản chỉ được tạo tối đa ${MAX_PROFILES_PER_USER} hồ sơ người thân`,
+    );
+  }
 
   const fullName = typeof payload.fullName === 'string' ? payload.fullName.trim() : '';
   if (!fullName) {
@@ -81,15 +126,7 @@ async function createProfile(user, payload = {}) {
   }
 
   const gender = normalizeGender(payload.gender);
-
-  let phoneNumber = null;
-  if (payload.phoneNumber != null && String(payload.phoneNumber).trim() !== '') {
-    phoneNumber = String(payload.phoneNumber).trim();
-    if (phoneNumber.length > 50) {
-      throw new ApiError(400, 'Số điện thoại không hợp lệ');
-    }
-  }
-
+  const phoneNumber = validatePhoneNumber(payload.phoneNumber);
   const dob = validateDob(payload.dob);
 
   let relationship = null;
@@ -144,15 +181,7 @@ async function updateProfile(user, profileId, payload = {}) {
   }
 
   if (payload.phoneNumber !== undefined) {
-    if (payload.phoneNumber == null || String(payload.phoneNumber).trim() === '') {
-      profile.phoneNumber = null;
-    } else {
-      const phone = String(payload.phoneNumber).trim();
-      if (phone.length > 50) {
-        throw new ApiError(400, 'Số điện thoại không hợp lệ');
-      }
-      profile.phoneNumber = phone;
-    }
+    profile.phoneNumber = validatePhoneNumber(payload.phoneNumber);
   }
 
   if (payload.dob !== undefined) {
@@ -205,8 +234,10 @@ async function deleteProfile(user, profileId) {
 }
 
 module.exports = {
+  MAX_PROFILES_PER_USER,
   getMyProfiles,
   getProfileById,
+  getActiveProfileForOwner,
   createProfile,
   updateProfile,
   deleteProfile,
