@@ -72,6 +72,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    bookingLockedUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     bookingLockedReason: {
       type: String,
       default: null,
