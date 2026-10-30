@@ -105,3 +105,4 @@ doctorShiftSchema.plugin(baseSchemaPlugin, {
 const DoctorShift = mongoose.model('DoctorShift', doctorShiftSchema, 'doctor_shifts');
 
 module.exports = DoctorShift;
+

@@ -31,10 +31,9 @@ const getCurrentTimeString = () =>
     hourCycle: 'h23',
   }).format(new Date());
 
-const generateAppointmentNo = (type = 'OFFLINE') => {
-  const prefix = type === 'ONLINE' ? 'ONL' : 'OFF';
+const generateAppointmentNo = () => {
   const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
-  return `${prefix}${randomHex}`;
+  return `OFF${randomHex}`;
 };
 
 /**
@@ -228,7 +227,8 @@ async function bookAppointment(user, query = {}, body = {}) {
   const holdToken = `HOLD_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   const now = new Date();
 
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const currentShift = await DoctorShift.findOne({ id: shift.id, status: 'ACTIVE' }).lean();
     if (!currentShift) {
       throw new ApiError(400, 'Ca trực không còn khả dụng hoặc đã bị hủy');
@@ -283,7 +283,8 @@ async function bookAppointment(user, query = {}, body = {}) {
     }
 
     // modifiedCount === 0 means race condition (another request took one of candidateIds)
-    if (attempt === 3) {
+    await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 15) + 5));
+    if (attempt === MAX_ATTEMPTS) {
       throw new ApiError(
         409,
         'Không thể giữ chỗ do có lượt đặt khác diễn ra đồng thời, vui lòng thử lại',
@@ -297,7 +298,7 @@ async function bookAppointment(user, query = {}, body = {}) {
 
   try {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const appointmentNo = generateAppointmentNo(appointmentType);
+      const appointmentNo = generateAppointmentNo();
       try {
         appointment = await Appointment.create({
           appointmentNo,
@@ -353,7 +354,7 @@ async function bookAppointment(user, query = {}, body = {}) {
           },
         },
         {
-          arrayFilters: [{ 'elem.id': { $in: reservedSlotIds } }],
+          arrayFilters: [{ 'elem.id': { $in: reservedSlotIds }, 'elem.bookingRef': holdToken }],
         },
       );
     }

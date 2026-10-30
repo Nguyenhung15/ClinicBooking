@@ -518,5 +518,70 @@ describe('UC-PAT-04: Đặt lịch khám nguyên tử (POST /appointments/create
     // s2 was recent (< 10 mins) -> left untouched
     assert.equal(s2.status, 'BOOKED');
   });
-});
+  it('9. Concurrency Race: 6 concurrent requests (1 patient each) for a 5-slot shift -> exactly 5 succeed (201), 1 gets 409, no double booking', async () => {
+    const shift = await DoctorShift.create({
+      doctorId,
+      date: '2099-11-15',
+      shift: 'MORNING',
+      startTime: '08:00',
+      endTime: '12:00',
+      maxPatients: 5,
+      status: 'ACTIVE',
+      slots: [
+        { id: 8001, slotNumber: 1, startTime: '08:00', endTime: '08:45', status: 'AVAILABLE' },
+        { id: 8002, slotNumber: 2, startTime: '08:45', endTime: '09:30', status: 'AVAILABLE' },
+        { id: 8003, slotNumber: 3, startTime: '09:30', endTime: '10:15', status: 'AVAILABLE' },
+        { id: 8004, slotNumber: 4, startTime: '10:15', endTime: '11:00', status: 'AVAILABLE' },
+        { id: 8005, slotNumber: 5, startTime: '11:00', endTime: '11:45', status: 'AVAILABLE' },
+      ],
+    });
 
+    const { signAccessToken } = require('../src/utils/jwt');
+    const passwordHash = await bcrypt.hash('Secret@123', 10);
+    const tokens = [];
+
+    for (let i = 1; i <= 6; i += 1) {
+      const u = await User.create({
+        email: `race_patient_${Date.now()}_${i}@clinicbooking.com`,
+        password: passwordHash,
+        fullName: `Bệnh Nhân Race ${i}`,
+        userType: ROLES.PATIENT,
+        gender: 'Male',
+        isEnable: true,
+      });
+      tokens.push(signAccessToken(u));
+    }
+
+    const requests = tokens.map((token, i) =>
+      apiRequest('POST', `/appointments/create?specialtyId=${specialty1Id}`, {
+        token,
+        body: {
+          shiftId: shift.id,
+          patients: [{ fullName: `Patient Candidate ${i + 1}` }],
+        },
+      }),
+    );
+
+    const responses = await Promise.all(requests);
+    const successes = responses.filter((r) => r.status === 201);
+    const conflicts = responses.filter((r) => r.status === 409);
+
+    assert.equal(successes.length, 5);
+    assert.equal(conflicts.length, 1);
+
+    // Verify all 5 appointments have unique slotIds
+    const appts = await Appointment.find({ shiftId: shift.id });
+    assert.equal(appts.length, 5);
+    const assignedSlotIds = appts.flatMap((a) => a.slotIds);
+    assert.equal(assignedSlotIds.length, 5);
+    assert.equal(new Set(assignedSlotIds).size, 5);
+
+    // Verify shift slots state in DB: all 5 slots are BOOKED, each has a bookingRef matching its appointment
+    const freshShift = await DoctorShift.findOne({ id: shift.id });
+    for (const slot of freshShift.slots) {
+      assert.equal(slot.status, 'BOOKED');
+      assert.ok(slot.bookingRef);
+      assert.match(slot.bookingRef, /^OFF[A-F0-9]{8}$/);
+    }
+  });
+});
