@@ -12,24 +12,10 @@ const { parsePositiveInt, normalizeGender } = require('../utils/normalizers');
 const patientProfileService = require('./patientProfile.service');
 const env = require('../config/env');
 
-const getTodayString = () => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: env.clinicTimeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-};
-
-const getCurrentTimeString = () =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: env.clinicTimeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
+const {
+  getTodayString,
+  getCurrentTimeString,
+} = require('./patientShift.service');
 
 const generateAppointmentNo = () => {
   const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
