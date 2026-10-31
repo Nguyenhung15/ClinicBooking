@@ -197,5 +197,40 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
     + `PUT /appointments/reschedule/:id` (phân quyền `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
 - **Biến env để đổi:** Không cần biến env mới.
 
+---
+
+## 12. Thiết kế Nghiệp vụ UC-REC-06: Lễ tân duyệt yêu cầu hủy ca của bác sĩ (Doctor Shift Cancellation Review)
+
+- **Vấn đề:**
+  1. Trong hệ thống Java cũ, bác sĩ gửi yêu cầu hủy ca nhưng hệ thống chỉ đổi trạng thái của yêu cầu mà không cập nhật ca trực (`DoctorShift`) hay hủy/dời các lịch hẹn đã đặt (`Appointment`), đồng thời thiếu role guard trên các endpoint duyệt yêu cầu.
+  2. Endpoint quản lý yêu cầu hủy ca trực:
+     - `GET /shifts/cancellation-requests/pending`: Danh sách yêu cầu `PENDING` (hỗ trợ phân trang `page`, `limit`), kèm số lượng booking thực tế bị ảnh hưởng (`affectedAppointmentCount`) và thống kê tóm tắt (`summary`).
+     - `PUT /shifts/cancellation-requests/:id/approve`: Duyệt yêu cầu hủy ca.
+     - `PUT /shifts/cancellation-requests/:id/reject`: Từ chối yêu cầu hủy ca (bắt buộc có `note`).
+  3. Quyền thực thi: Chỉ dành cho `RECEPTIONIST` và `ADMIN` (`requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`). Phía tạo yêu cầu (`POST /shifts/:shiftId/cancellation-requests`): Bắt buộc `ROLES.DOCTOR` và `shift.doctorId === actor.userId` (không được tạo hộ bác sĩ khác), không cho phép tạo trùng lặp yêu cầu `PENDING` cho cùng một ca trực.
+  4. Duyệt (`Approve`) / Từ chối (`Reject`):
+     - Chỉ thực hiện khi request đang ở trạng thái `PENDING` (sử dụng conditional update nguyên tử `status: 'PENDING'`).
+     - Lưu đầy đủ định danh người duyệt/từ chối `approvedBy` / `rejectedBy` / `decidedBy` (String/ObjectId lấy trực tiếp từ JWT), `approvedAt` / `rejectedAt` / `decidedAt` (UTC Date) và `decisionNote`.
+     - Reject bắt buộc có `note` không rỗng (trả 400 `REJECTION_NOTE_REQUIRED` nếu thiếu).
+     - Xử lý lặp (Idempotent): Nếu yêu cầu đã ở trạng thái đích (`APPROVED` hoặc `REJECTED`), hệ thống trả về bản ghi hiện tại kèm HTTP 200 mà không gây xung đột hay phát sinh side-effect lặp lại.
+  5. **Chính sách Xử lý Lịch hẹn bị ảnh hưởng (`SHIFT_CANCEL_POLICY`):**
+     - Mặc định: `BLOCK_UNTIL_RESOLVED`. Nếu ca trực còn bất kỳ lịch hẹn nào đang hoạt động (`PENDING_PAYMENT`, `PENDING_CONFIRMATION`, `CONFIRMED`, `CHECKED_IN`), hệ thống từ chối duyệt với HTTP 409 `SHIFT_HAS_ACTIVE_BOOKINGS`, trả về danh sách lịch hẹn cần xử lý, yêu cầu lễ tân đổi lịch hoặc hủy từng lịch (theo luồng `UC-REC-05`) trước khi duyệt hủy ca.
+     - Chế độ `AUTO_CANCEL_AFFECTED`: Khi được bật qua cấu hình env `SHIFT_CANCEL_POLICY=AUTO_CANCEL_AFFECTED` (hoặc truyền qua body request `{ policy: 'AUTO_CANCEL_AFFECTED' }`), hệ thống tự động tái sử dụng logic hủy lịch của `UC-REC-05` (`cancelAppointmentByStaff`) cho từng ca khám: gắn cờ `refundRequired=true` nếu đã thanh toán, giải phóng slot và phát outbox thông báo cho từng bệnh nhân.
+  6. **Đổi trạng thái Ca trực & Slot:**
+     - Khi đủ điều kiện duyệt: Ca trực chuyển `status: 'CANCELLED'`.
+     - Toàn bộ slot chưa đặt (`status: 'AVAILABLE'`) trong ca trực được cập nhật nguyên tử chuyển sang `CANCELLED`.
+  7. **Hậu kiểm & Sự kiện (Post-commit):**
+     - Ghi nhận Transactional Outbox event (`SHIFT_CANCELLATION_APPROVED` / `SHIFT_CANCELLATION_REJECTED`) để thông báo cho bác sĩ phụ trách.
+     - Ghi nhận Audit Log hành động `APPROVE_SHIFT_CANCEL` và `REJECT_SHIFT_CANCEL`.
+- **Mặc định đã chọn:**
+  - Route:
+    + `GET /shifts/cancellation-requests/pending`
+    + `PUT /shifts/cancellation-requests/:id/approve`
+    + `PUT /shifts/cancellation-requests/:id/reject`
+  - Biến env: `SHIFT_CANCEL_POLICY=BLOCK_UNTIL_RESOLVED`.
+- **Lý do:** Đảm bảo bảo vệ quyền lợi của bệnh nhân đã đặt lịch trước khi bác sĩ được phép hủy ca, tránh triệt để tình trạng bỏ rơi bệnh nhân đến khám, hỗ trợ đầy đủ cả 2 chế độ xử lý linh hoạt và kiểm soát phân quyền chặt chẽ.
+- **Biến env để đổi:** `SHIFT_CANCEL_POLICY=BLOCK_UNTIL_RESOLVED` (hoặc `AUTO_CANCEL_AFFECTED`).
+
+
 
 

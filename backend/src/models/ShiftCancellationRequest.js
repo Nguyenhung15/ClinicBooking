@@ -24,8 +24,12 @@ const shiftCancellationRequestSchema = new mongoose.Schema(
       index: true,
     },
     decisionNote: { type: String, default: '', maxlength: 500 },
-    decidedBy: { type: Number, default: null },
+    decidedBy: { type: mongoose.Schema.Types.Mixed, default: null, index: true },
     decidedAt: { type: Date, default: null },
+    approvedBy: { type: mongoose.Schema.Types.Mixed, default: null, index: true },
+    approvedAt: { type: Date, default: null },
+    rejectedBy: { type: mongoose.Schema.Types.Mixed, default: null, index: true },
+    rejectedAt: { type: Date, default: null },
   },
   { timestamps: true, versionKey: false },
 );

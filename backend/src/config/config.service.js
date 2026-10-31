@@ -146,6 +146,10 @@ class ConfigService {
     return this.getNumber('CHECKIN_EARLY_MINUTES', 60);
   }
 
+  get shiftCancelPolicy() {
+    return this.getString('SHIFT_CANCEL_POLICY', 'BLOCK_UNTIL_RESOLVED');
+  }
+
   /**
    * Export config snapshot object for backwards compatibility.
    */
@@ -176,6 +180,7 @@ class ConfigService {
       adminBootstrapSecret: this.adminBootstrapSecret,
       adminBootstrapRequireSecret: this.adminBootstrapRequireSecret,
       checkinEarlyMinutes: this.checkinEarlyMinutes,
+      shiftCancelPolicy: this.shiftCancelPolicy,
     };
   }
 }
