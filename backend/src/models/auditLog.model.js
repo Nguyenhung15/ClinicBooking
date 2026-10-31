@@ -4,7 +4,7 @@ const baseSchemaPlugin = require('./plugins/baseSchema.plugin');
 const auditLogSchema = new mongoose.Schema(
   {
     actorId: {
-      type: Number,
+      type: mongoose.Schema.Types.Mixed, // Supports numeric ID or string ObjectId
       required: true,
       index: true,
     },
@@ -27,11 +27,15 @@ const auditLogSchema = new mongoose.Schema(
       index: true,
     },
     targetId: {
-      type: Number,
+      type: mongoose.Schema.Types.Mixed, // Supports numeric ID or string ObjectId
       required: true,
       index: true,
     },
     reason: {
+      type: String,
+      default: null,
+    },
+    summary: {
       type: String,
       default: null,
     },
@@ -63,4 +67,3 @@ auditLogSchema.plugin(baseSchemaPlugin, {
 const AuditLog = mongoose.model('AuditLog', auditLogSchema, 'audit_logs');
 
 module.exports = AuditLog;
-

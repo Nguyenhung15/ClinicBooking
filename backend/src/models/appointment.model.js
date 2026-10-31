@@ -20,7 +20,6 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     patientId: {
       type: Number,
@@ -113,7 +112,10 @@ const appointmentSchema = new mongoose.Schema(
   },
 );
 
-appointmentSchema.index({ appointmentDate: 1, doctorId: 1, status: 1 });
+// P0 Required Baseline Indexes
+appointmentSchema.index({ patientId: 1, appointmentDate: 1 });
+appointmentSchema.index({ doctorId: 1, appointmentDate: 1, status: 1 });
+appointmentSchema.index({ shiftId: 1, slotIds: 1 });
 
 appointmentSchema.plugin(baseSchemaPlugin, {
   sequenceName: 'appointments',

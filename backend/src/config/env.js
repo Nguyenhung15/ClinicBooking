@@ -1,32 +1,13 @@
-const path = require('path');
-require('dotenv').config();
+const { configService } = require('./config.service');
 
-const env = {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  port: Number(process.env.PORT) || 3000,
-  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/clinic_booking',
-  jwtSecret: process.env.JWT_SECRET || 'clinic_booking_dev_secret_key_sdn302',
-  clinicTimeZone: process.env.CLINIC_TIME_ZONE || 'Asia/Ho_Chi_Minh',
-  // Comma-separated list of allowed origins, e.g. "http://localhost:5173,https://app.example.com"
-  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, ''),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'),
-  adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET || '',
-  adminBootstrapRequireSecret:
-    process.env.ADMIN_BOOTSTRAP_REQUIRE_SECRET === 'true',
-  maxPatientsPerAppointment:
-    Number(process.env.MAX_PATIENTS_PER_APPOINTMENT) || 4,
-  maxPendingAppointmentsPerPatient:
-    Number(process.env.MAX_PENDING_APPOINTMENTS_PER_PATIENT) || 5,
-  cancelMinHours: Number(process.env.CANCEL_MIN_HOURS) || 24,
-  cancelLockThreshold: Number(process.env.CANCEL_LOCK_THRESHOLD) || 3,
-  bookingLockDurationHours: Number(process.env.BOOKING_LOCK_DURATION_HOURS) || 24,
-};
-
-env.isProduction = env.nodeEnv === 'production';
+// Backward-compatible env object mirroring ConfigService properties
+const env = new Proxy(configService.toObject(), {
+  get(target, prop) {
+    if (prop in configService) {
+      return configService[prop];
+    }
+    return target[prop];
+  },
+});
 
 module.exports = env;
