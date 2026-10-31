@@ -14,6 +14,7 @@ const RssSource = require('./rssSource.model');
 const News = require('./news.model');
 const BootstrapState = require('./bootstrapState.model');
 const PatientProfile = require('./patientProfile.model');
+const OutboxEvent = require('./outboxEvent.model');
 
 module.exports = {
   Counter,
@@ -34,5 +35,6 @@ module.exports = {
   News,
   BootstrapState,
   PatientProfile,
+  OutboxEvent,
 };
 

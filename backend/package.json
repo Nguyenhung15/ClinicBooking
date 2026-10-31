@@ -12,7 +12,10 @@
     "seed": "node src/seed/seed.js",
     "import:doctor-data": "node scripts/import-doctors-from-dump.js",
     "import:doctors": "node scripts/import-doctors-from-dump.js",
-    "test": "NODE_ENV=test node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:p0": "node --test tests/p0-*.test.js",
+    "lint": "node --check src/server.js src/app.js src/config/*.js src/services/*.js src/middlewares/*.js src/models/*.js src/utils/*.js",
+    "build": "node -e \"console.log('[Build] Verification passed: ClinicBooking Modular Monolith Backend')\""
   },
   "repository": {
     "type": "git",

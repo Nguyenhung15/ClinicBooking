@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
 const routes = require('./routes');
-const { notFound, errorHandler } = require('./middlewares/error.middleware');
+const { notFound, errorHandler, getTraceId } = require('./middlewares/error.middleware');
+const { defaultRateLimiter } = require('./middlewares/rateLimiter.middleware');
 
 const app = express();
 
@@ -43,6 +44,16 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.text({ type: 'text/plain' }));
+
+// Trace ID correlation
+app.use((req, res, next) => {
+  const traceId = getTraceId(req);
+  res.setHeader('X-Trace-Id', traceId);
+  next();
+});
+
+// Reusable user/IP rate limiter
+app.use(defaultRateLimiter);
 
 // Static uploaded files (mounted at both `/uploads` and `/images/file/uploads` per `web/src/api/image.ts`)
 app.use('/uploads', express.static(env.uploadsDir));
