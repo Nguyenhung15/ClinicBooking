@@ -1,0 +1,193 @@
+const { OutboxEvent } = require('../models');
+const { clock } = require('./clock.service');
+const { sanitizePiiAndSecrets } = require('./audit.service');
+
+// Channel adapters registry
+const adapters = {
+  EMAIL: async (event) => {
+    // Default mock / dev logger for email notification
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`[Outbox EmailAdapter] Sent notification: ${event.eventType}`, event.payload);
+    }
+    return { success: true };
+  },
+  WEBSOCKET: async (event) => {
+    // Default mock / dev logger for websocket notification
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`[Outbox WebSocketAdapter] Broadcast event: ${event.eventType}`, event.payload);
+    }
+    return { success: true };
+  },
+  PUSH: async (event) => {
+    return { success: true };
+  },
+};
+
+/**
+ * Register a custom adapter handler for a given channel (e.g. for testing or production SMTP).
+ * @param {'EMAIL'|'WEBSOCKET'|'PUSH'} channel
+ * @param {(event: object) => Promise<{ success: boolean }>} handler
+ */
+function registerAdapter(channel, handler) {
+  adapters[channel] = handler;
+}
+
+/**
+ * Record an outbox event post-commit.
+ * Strips any sensitive credentials before persisting.
+ *
+ * @param {object} params
+ * @param {string} params.eventType - e.g. "APPOINTMENT_CONFIRMED"
+ * @param {'EMAIL'|'WEBSOCKET'|'PUSH'|'ALL'} [params.channel='ALL']
+ * @param {object} params.payload - Event payload data
+ * @param {object} [params.session=null] - Optional Mongoose ClientSession
+ * @returns {Promise<OutboxEvent>}
+ */
+async function recordEvent({ eventType, channel = 'ALL', payload, session = null }) {
+  if (!eventType) {
+    throw new Error('Outbox eventType is required');
+  }
+
+  const cleanPayload = sanitizePiiAndSecrets(payload || {});
+  const now = clock.now();
+
+  const [created] = await OutboxEvent.create(
+    [
+      {
+        eventType: String(eventType).trim(),
+        channel: channel || 'ALL',
+        payload: cleanPayload,
+        status: 'PENDING',
+        retries: 0,
+        maxRetries: 5,
+        nextRetryAt: now,
+      },
+    ],
+    { session },
+  );
+
+  return created;
+}
+
+/**
+ * Process a single outbox event with its target adapter(s).
+ * Idempotent: checks status before dispatching and updates atomically.
+ *
+ * @param {OutboxEvent} event
+ * @returns {Promise<boolean>}
+ */
+async function processEvent(event) {
+  const targetChannels = event.channel === 'ALL'
+    ? ['EMAIL', 'WEBSOCKET']
+    : [event.channel];
+
+  try {
+    for (const ch of targetChannels) {
+      const adapter = adapters[ch];
+      if (typeof adapter === 'function') {
+        await adapter(event);
+      }
+    }
+
+    event.status = 'SENT';
+    event.processedAt = clock.now();
+    event.lastError = null;
+    await event.save();
+    return true;
+  } catch (err) {
+    const nextRetryCount = event.retries + 1;
+    event.retries = nextRetryCount;
+    event.lastError = err?.message || 'Adapter execution failed';
+
+    if (nextRetryCount >= event.maxRetries) {
+      event.status = 'FAILED';
+    } else {
+      // Exponential backoff: 2s, 4s, 8s, 16s... up to 1 hour max
+      const backoffMs = Math.min(3600000, 1000 * Math.pow(2, nextRetryCount));
+      event.nextRetryAt = new Date(clock.now().getTime() + backoffMs);
+      event.status = 'PENDING';
+    }
+
+    await event.save();
+    return false;
+  }
+}
+
+/**
+ * Dispatch batch of pending outbox events.
+ * Safe execution: errors in one event do not abort processing of others.
+ *
+ * @param {object} [options={}]
+ * @param {number} [options.limit=20]
+ * @returns {Promise<{ processedCount: number, successCount: number, failedCount: number }>}
+ */
+async function dispatchPendingEvents({ limit = 20 } = {}) {
+  const now = clock.now();
+
+  // Find and lock pending events
+  const pendingEvents = await OutboxEvent.find({
+    status: 'PENDING',
+    nextRetryAt: { $lte: now },
+  })
+    .sort({ nextRetryAt: 1 })
+    .limit(limit);
+
+  let successCount = 0;
+  let failedCount = 0;
+
+  for (const event of pendingEvents) {
+    // Atomic status claim to prevent concurrent worker duplicate sending
+    const claimed = await OutboxEvent.findOneAndUpdate(
+      { _id: event._id, status: 'PENDING' },
+      { $set: { status: 'PROCESSING' } },
+      { returnDocument: 'after' },
+    );
+
+    if (!claimed) continue; // Claimed by another worker tick
+
+    const ok = await processEvent(claimed);
+    if (ok) {
+      successCount++;
+    } else {
+      failedCount++;
+    }
+  }
+
+  return {
+    processedCount: pendingEvents.length,
+    successCount,
+    failedCount,
+  };
+}
+
+let workerIntervalId = null;
+
+function startOutboxWorker(intervalMs = 5000) {
+  if (workerIntervalId) return;
+  workerIntervalId = setInterval(async () => {
+    try {
+      await dispatchPendingEvents();
+    } catch (err) {
+      console.warn(`[Outbox Worker] Dispatch error: ${err.message}`);
+    }
+  }, intervalMs);
+  if (typeof workerIntervalId.unref === 'function') {
+    workerIntervalId.unref();
+  }
+}
+
+function stopOutboxWorker() {
+  if (workerIntervalId) {
+    clearInterval(workerIntervalId);
+    workerIntervalId = null;
+  }
+}
+
+module.exports = {
+  recordEvent,
+  processEvent,
+  dispatchPendingEvents,
+  registerAdapter,
+  startOutboxWorker,
+  stopOutboxWorker,
+};
