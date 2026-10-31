@@ -116,3 +116,23 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
   - Xây dựng `ConfigService` có kiểu dữ liệu rõ ràng, tự động validate các biến bắt buộc, cung cấp giá trị mặc định an toàn cho môi trường development/test.
 - **Lý do:** Giúp khởi động ứng dụng an toàn (fail-fast nếu thiếu biến quan trọng), code sạch sẽ và dễ mock trong unit test.
 - **Biến env để đổi:** Khai báo đầy đủ trong `.env.example`.
+
+---
+
+## 9. Thiết kế Nghiệp vụ UC-REC-03: Xác nhận Lịch hẹn (Confirm Appointment)
+
+- **Vấn đề:** 
+  1. Frontend gọi xác nhận lịch hẹn qua endpoint `PUT /appointments/confirm/:id` (`web/src/api/appointment.ts`). Cần đảm bảo endpoint giữ nguyên phương thức và đường dẫn.
+  2. Quyền thực thi chỉ dành cho `RECEPTIONIST` và `ADMIN`.
+  3. Lịch chỉ được chuyển từ `PENDING_CONFIRMATION` -> `CONFIRMED`.
+  4. Lịch đã `CONFIRMED` gọi lại phải idempotent (trả HTTP 200 kèm state hiện tại, không gây side-effect lặp lại).
+  5. Khi lịch ở trạng thái khác (`CANCELLED`, `EXPIRED`, `COMPLETED`, `IN_PROGRESS`), hệ thống phải trả HTTP 409 với code `INVALID_STATE`.
+  6. Phải kiểm tra tính hợp lệ trước khi xác nhận: ca trực (`DoctorShift`) phải còn tồn tại và ở trạng thái `ACTIVE`; thời gian khám (`appointmentDate` + `appointmentTime`) chưa ở trong quá khứ so với thời gian phòng khám (`clock`).
+  7. Sau khi xác nhận thành công: lưu `confirmedBy` (userId từ JWT) và `confirmedAt` (UTC Date), phát outbox event `APPOINTMENT_CONFIRMED` (kênh EMAIL) và ghi audit log `CONFIRM_APPOINTMENT`.
+- **Mặc định đã chọn:**
+  - Route: `PUT /appointments/confirm/:id` (được mount tại `/api/appointments/confirm/:id` và bảo vệ bởi `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+  - Sử dụng `AppointmentStateService.transition`: áp dụng conditional atomic update để ngăn ngừa race condition (nếu 2 lễ tân confirm cùng lúc, chỉ 1 bên ghi nhận thành công và bên còn lại nhận kết quả `CONFIRMED` idempotent).
+  - Lỗi gửi thông báo outbox không rollback nghiệp vụ chính (Transactional Outbox pattern).
+- **Lý do:** Đảm bảo toàn vẹn dữ liệu, tính nhất quán trạng thái và trải nghiệm mượt mà cho nhân viên tiếp đón phòng khám mà không ảnh hưởng tới bất kỳ use case nào khác.
+- **Biến env để đổi:** Không cần biến env mới.
+
