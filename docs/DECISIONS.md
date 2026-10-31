@@ -136,3 +136,66 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
 - **Lý do:** Đảm bảo toàn vẹn dữ liệu, tính nhất quán trạng thái và trải nghiệm mượt mà cho nhân viên tiếp đón phòng khám mà không ảnh hưởng tới bất kỳ use case nào khác.
 - **Biến env để đổi:** Không cần biến env mới.
 
+---
+
+## 10. Thiết kế Nghiệp vụ UC-REC-04: Check-in Bệnh nhân (Check-in Appointment)
+
+- **Vấn đề:**
+  1. Frontend gọi check-in bệnh nhân qua endpoint `PUT /appointments/checkin/:id` (`web/src/api/appointment.ts`). Cần giữ nguyên method và path.
+  2. Quyền thực thi chỉ dành cho `RECEPTIONIST` và `ADMIN`.
+  3. Lịch chỉ được chuyển từ `CONFIRMED` -> `CHECKED_IN` qua `AppointmentStateService`.
+  4. Cần bổ sung các trường schema mới: `checkedInAt: Date` (UTC) và `checkedInBy: Mixed` (hỗ trợ Number ID cũ và String ObjectId mới) vì hệ thống Java/MySQL cũ chưa lưu trữ 2 thông tin này.
+  5. Kiểm tra ngày và cửa sổ giờ check-in:
+     - Phải đúng ngày khám theo múi giờ phòng khám (`CLINIC_TIMEZONE`). Khác ngày: trả 409 (`CHECKIN_TOO_EARLY` hoặc `CHECKIN_WINDOW_CLOSED`).
+     - Trong ngày khám: cửa sổ mở từ `CHECKIN_EARLY_MINUTES` (mặc định 60 phút) trước giờ slot khám đến hết giờ ca trực (`shift.endTime`). Ngoài cửa sổ: trả 409 (`CHECKIN_TOO_EARLY` hoặc `CHECKIN_WINDOW_CLOSED`).
+  6. Xác minh người đến khám:
+     - Request có thể nhận `verifyPhoneLast4` (4 số cuối điện thoại bệnh nhân) hoặc `identityVerified=true` (xác nhận thẻ BHYT / CCCD trực tiếp tại quầy).
+     - Nếu truyền `verifyPhoneLast4`, hệ thống đối chiếu 4 số cuối với số điện thoại trong snapshot bệnh nhân của lịch hẹn (`appointment.patients[].phoneNumber`) hoặc tài khoản bệnh nhân (`user.phoneNumber`). Nếu không khớp: trả 409 `IDENTITY_VERIFICATION_FAILED`.
+     - Nếu gửi thiếu cả hai hoặc `identityVerified=false` mà không có SĐT: trả 400 `MISSING_VERIFICATION_INFO`. Để tương thích tối đa với nút bấm nhanh trên giao diện hiện hữu của lễ tân (`handleCheckin(id)` gửi body rỗng), hệ thống tự động coi đây là `identityVerified=true` (xác minh trực tiếp tại quầy).
+  7. Lịch đã `CHECKED_IN`: trả state hiện tại kèm HTTP 200 (idempotent, không tạo side-effect lặp lại).
+  8. Lịch ở sai trạng thái (`PENDING_CONFIRMATION`, `CANCELLED`, `COMPLETED`...): trả 409 `INVALID_STATE`.
+  9. Sau commit: ghi outbox event `DOCTOR_PATIENT_CHECKED_IN` thông báo cho bác sĩ phụ trách ca khám.
+  10. Ghi Audit Log hành động `CHECKIN`.
+- **Mặc định đã chọn:**
+  - Route: `PUT /appointments/checkin/:id` (được bảo vệ bởi `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+  - Cấu hình cửa sổ check-in: `CHECKIN_EARLY_MINUTES=60` (quản lý qua `ConfigService`).
+- **Lý do:** Đáp ứng đầy đủ quy trình tiếp đón thực tế của phòng khám, ngăn chặn việc check-in nhầm ca/nhầm ngày, hỗ trợ đa dạng phương thức xác minh danh tính và đảm bảo khả năng mở rộng.
+- **Biến env để đổi:** `CHECKIN_EARLY_MINUTES=60`.
+
+---
+
+## 11. Thiết kế Nghiệp vụ UC-REC-05: Lễ tân/Admin Hủy hoặc Đổi lịch hẹn (Cancel & Reschedule Appointment)
+
+- **Vấn đề:**
+  1. Đây là use case có rủi ro cao nhất về slot và tính toàn vẹn dữ liệu: dời lịch và hủy lịch phải đồng bộ nguyên tử giữa collection `appointments` và `doctor_shifts.slots`.
+  2. Endpoint hiện hữu của hệ thống:
+     - `PUT /appointments/cancel/:id`: Bản dành cho Lễ tân / Quản trị viên (`RECEPTIONIST`, `ADMIN`), nhận `reason`.
+     - `PUT /appointments/reschedule/:id`: Bản dành cho Lễ tân / Quản trị viên, nhận `newShiftId` (qua body hoặc query param), `newSlotId` (tùy chọn hoặc chọn slot AVAILABLE đầu tiên), và `reason`.
+  3. Bắt buộc `reason` không rỗng cho cả hai thao tác (trả 400 `REASON_REQUIRED` nếu thiếu hoặc chuỗi khoảng trắng).
+  4. Trạng thái cho phép: Chỉ lịch chưa ở các trạng thái kết thúc (`COMPLETED`, `CANCELLED`, `EXPIRED`, `NO_SHOW`). Lịch ở trạng thái kết thúc gọi đến sẽ bị từ chối với HTTP 409 `INVALID_STATE`.
+  5. **Quy tắc Hủy Lịch bởi Nhân viên (Staff Cancellation):**
+     - Chuyển trạng thái sang `CANCELLED` qua `AppointmentStateService`, lưu `cancelledBy` (userId từ JWT), `cancelledAt` (UTC Date) và `cancelReason`.
+     - Giải phóng slot (`BOOKED` -> `AVAILABLE`, clear `bookingRef`, `bookedAt`) trong cùng đơn vị atomic với việc đổi state.
+     - **Chỉ giải phóng nếu slot đang gắn đúng appointment này** (`slots.bookingRef === appointment.appointmentNo`).
+     - **Miễn trừ chính sách phạt:** Lễ tân/Admin hủy lịch phòng khám **KHÔNG** bị giới hạn cửa sổ 48h/24h và **KHÔNG** làm tăng bộ đếm số lần hủy hay kích hoạt khóa đặt lịch của bệnh nhân (`cancelledCount` / `isBookingLocked`). Chính sách khóa 24h chỉ áp dụng riêng cho luồng Bệnh nhân tự hủy (`UC-PAT-06`).
+     - **Chính sách hoàn tiền (Refund Flag):** Hệ thống không tự động hoàn tiền trực tiếp qua API ngân hàng; nếu lịch đã thanh toán thành công (hoặc có giao dịch thanh toán thành công), hệ thống gắn cờ `refundRequired=true` để bộ phận kế toán đối soát xử lý hoàn tiền thủ công.
+  6. **Quy tắc Đổi Lịch (Reschedule):**
+     - Ca trực mới (`DoctorShift`) phải tồn tại, có trạng thái `ACTIVE` (không `CANCELLED` hay `GROUP_BLOCKED`), và phải thuộc cùng bác sĩ phụ trách ca khám cũ (`newShift.doctorId === oldAppointment.doctorId`).
+     - Slot mới phải `AVAILABLE`. Sử dụng conditional atomic update trên slot (`slots.status: 'AVAILABLE'`). Nếu slot đã bị người khác đặt hoặc concurrent conflict -> trả 409 `SLOT_ALREADY_BOOKED` và **KHÔNG THAY ĐỔI BẤT KỲ DỮ LIỆU NÀO**.
+     - Lịch cũ chuyển sang `RESCHEDULED` qua `AppointmentStateService`.
+     - Tạo một `Appointment` mới (với mã `appointmentNo` mới dạng `OFF...`, bảo lưu toàn bộ snapshot bệnh nhân `patients`, hình thức khám `type`, và lý do đổi lịch `reason`).
+     - **Liên kết lịch sử (History Link):** Lịch mới lưu `rescheduledFromId = oldAppointment.id`, và lịch cũ lưu `rescheduledToId = newAppointment.id`.
+     - **Quy tắc State Appointment mới:** Nếu lịch cũ đã ở trạng thái `CONFIRMED` hoặc `CHECKED_IN`, lịch mới tự động ở trạng thái `CONFIRMED` (và lưu `confirmedBy`, `confirmedAt`). Nếu lịch cũ đang ở `PENDING_CONFIRMATION` hoặc `PENDING_PAYMENT`, lịch mới duy trì trạng thái tương ứng.
+     - Giải phóng slot cũ của ca khám cũ (`BOOKED` -> `AVAILABLE`, xóa `bookingRef`).
+     - **Cơ chế Bồi hoàn (Compensation Rollback):** Toàn bộ quy trình được bọc trong khối try/catch bồi hoàn. Nếu xảy ra lỗi giữa chừng (ví dụ: chuyển state lịch cũ lỗi, đứt kết nối DB), hệ thống ngay lập tức hoàn tác slot mới vừa giữ chỗ về `AVAILABLE`, xóa bản ghi appointment mới vừa tạo (nếu có), đảm bảo slot và appointment không bao giờ bị lệch trạng thái.
+  7. **Hậu kiểm & Sự kiện (Post-commit):**
+     - Ghi nhận Transactional Outbox event (`APPOINTMENT_CANCELLED_BY_STAFF` và `APPOINTMENT_RESCHEDULED_BY_STAFF`) để phát thông báo tới bệnh nhân và bác sĩ.
+     - Ghi nhận Audit Log hành động `CANCEL_APPOINTMENT` và `RESCHEDULE_APPOINTMENT`.
+- **Mặc định đã chọn:**
+  - Route:
+    + `PUT /appointments/cancel/:id` (phân quyền `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+    + `PUT /appointments/reschedule/:id` (phân quyền `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+- **Biến env để đổi:** Không cần biến env mới.
+
+
+

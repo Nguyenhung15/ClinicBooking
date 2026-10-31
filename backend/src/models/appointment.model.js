@@ -77,6 +77,15 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    checkedInAt: {
+      type: Date,
+      default: null,
+    },
+    checkedInBy: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
     confirmedBy: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
@@ -97,6 +106,25 @@ const appointmentSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
       default: null,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
+    refundRequired: {
+      type: Boolean,
+      default: false,
+    },
+    rescheduledFromId: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
+    rescheduledToId: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
     },
     joinCode: {
       type: String,

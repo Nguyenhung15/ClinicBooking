@@ -15,4 +15,36 @@ router.put(
   receptionistAppointmentController.confirmAppointment,
 );
 
+// UC-REC-04: Lễ tân / Admin check-in bệnh nhân
+// Endpoint: PUT /appointments/checkin/:id
+// Allowed roles: RECEPTIONIST, ADMIN
+router.put(
+  '/checkin/:id',
+  authenticate,
+  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  receptionistAppointmentController.checkinAppointment,
+);
+
+// UC-REC-05: Lễ tân / Admin hủy lịch hẹn
+// Endpoint: PUT /appointments/cancel/:id
+// Allowed roles: RECEPTIONIST, ADMIN
+router.put(
+  '/cancel/:id',
+  authenticate,
+  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  receptionistAppointmentController.cancelAppointment,
+);
+
+// UC-REC-05: Lễ tân / Admin đổi lịch hẹn (reschedule)
+// Endpoint: PUT /appointments/reschedule/:id
+// Allowed roles: RECEPTIONIST, ADMIN
+router.put(
+  '/reschedule/:id',
+  authenticate,
+  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  receptionistAppointmentController.rescheduleAppointment,
+);
+
 module.exports = router;
+
+

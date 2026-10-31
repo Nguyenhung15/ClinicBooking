@@ -141,6 +141,11 @@ class ConfigService {
     return this.getBoolean('ADMIN_BOOTSTRAP_REQUIRE_SECRET', false);
   }
 
+  // --- Receptionist / Appointment Settings ---
+  get checkinEarlyMinutes() {
+    return this.getNumber('CHECKIN_EARLY_MINUTES', 60);
+  }
+
   /**
    * Export config snapshot object for backwards compatibility.
    */
@@ -170,6 +175,7 @@ class ConfigService {
       bookingLockDurationHours: this.bookingLockDurationHours,
       adminBootstrapSecret: this.adminBootstrapSecret,
       adminBootstrapRequireSecret: this.adminBootstrapRequireSecret,
+      checkinEarlyMinutes: this.checkinEarlyMinutes,
     };
   }
 }

@@ -209,6 +209,10 @@ class AppointmentStateService {
     }
     if (toStatus === APPOINTMENT_STATUSES.CHECKED_IN) {
       updateSet.checkedIn = true;
+      updateSet.checkedInAt = nowUtc;
+      if (actor?.userId) {
+        updateSet.checkedInBy = Number(actor.userId) || actor.userId;
+      }
     }
     if (toStatus === APPOINTMENT_STATUSES.IN_PROGRESS && !existing.actualStartTime) {
       updateSet.actualStartTime = clock.currentTime();
@@ -278,7 +282,11 @@ class AppointmentStateService {
             type: 'Appointment',
             id: String(updated.id || updated._id),
           },
-          reason: extraFields.reason || `Chuyển trạng thái từ ${previousStatus} sang ${toStatus}`,
+          reason:
+            extraFields.cancelReason ||
+            extraFields.reason ||
+            options.auditReason ||
+            `Chuyển trạng thái từ ${previousStatus} sang ${toStatus}`,
           summary: `Appointment ${updated.appointmentNo || updated.id}: ${previousStatus} -> ${toStatus}`,
           changes: {
             before: { status: previousStatus },
