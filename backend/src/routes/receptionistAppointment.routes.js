@@ -15,4 +15,15 @@ router.put(
   receptionistAppointmentController.confirmAppointment,
 );
 
+// UC-REC-04: Lễ tân / Admin check-in bệnh nhân
+// Endpoint: PUT /appointments/checkin/:id
+// Allowed roles: RECEPTIONIST, ADMIN
+router.put(
+  '/checkin/:id',
+  authenticate,
+  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  receptionistAppointmentController.checkinAppointment,
+);
+
 module.exports = router;
+

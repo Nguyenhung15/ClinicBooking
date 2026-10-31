@@ -209,6 +209,10 @@ class AppointmentStateService {
     }
     if (toStatus === APPOINTMENT_STATUSES.CHECKED_IN) {
       updateSet.checkedIn = true;
+      updateSet.checkedInAt = nowUtc;
+      if (actor?.userId) {
+        updateSet.checkedInBy = Number(actor.userId) || actor.userId;
+      }
     }
     if (toStatus === APPOINTMENT_STATUSES.IN_PROGRESS && !existing.actualStartTime) {
       updateSet.actualStartTime = clock.currentTime();
