@@ -162,4 +162,40 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
 - **Lý do:** Đáp ứng đầy đủ quy trình tiếp đón thực tế của phòng khám, ngăn chặn việc check-in nhầm ca/nhầm ngày, hỗ trợ đa dạng phương thức xác minh danh tính và đảm bảo khả năng mở rộng.
 - **Biến env để đổi:** `CHECKIN_EARLY_MINUTES=60`.
 
+---
+
+## 11. Thiết kế Nghiệp vụ UC-REC-05: Lễ tân/Admin Hủy hoặc Đổi lịch hẹn (Cancel & Reschedule Appointment)
+
+- **Vấn đề:**
+  1. Đây là use case có rủi ro cao nhất về slot và tính toàn vẹn dữ liệu: dời lịch và hủy lịch phải đồng bộ nguyên tử giữa collection `appointments` và `doctor_shifts.slots`.
+  2. Endpoint hiện hữu của hệ thống:
+     - `PUT /appointments/cancel/:id`: Bản dành cho Lễ tân / Quản trị viên (`RECEPTIONIST`, `ADMIN`), nhận `reason`.
+     - `PUT /appointments/reschedule/:id`: Bản dành cho Lễ tân / Quản trị viên, nhận `newShiftId` (qua body hoặc query param), `newSlotId` (tùy chọn hoặc chọn slot AVAILABLE đầu tiên), và `reason`.
+  3. Bắt buộc `reason` không rỗng cho cả hai thao tác (trả 400 `REASON_REQUIRED` nếu thiếu hoặc chuỗi khoảng trắng).
+  4. Trạng thái cho phép: Chỉ lịch chưa ở các trạng thái kết thúc (`COMPLETED`, `CANCELLED`, `EXPIRED`, `NO_SHOW`). Lịch ở trạng thái kết thúc gọi đến sẽ bị từ chối với HTTP 409 `INVALID_STATE`.
+  5. **Quy tắc Hủy Lịch bởi Nhân viên (Staff Cancellation):**
+     - Chuyển trạng thái sang `CANCELLED` qua `AppointmentStateService`, lưu `cancelledBy` (userId từ JWT), `cancelledAt` (UTC Date) và `cancelReason`.
+     - Giải phóng slot (`BOOKED` -> `AVAILABLE`, clear `bookingRef`, `bookedAt`) trong cùng đơn vị atomic với việc đổi state.
+     - **Chỉ giải phóng nếu slot đang gắn đúng appointment này** (`slots.bookingRef === appointment.appointmentNo`).
+     - **Miễn trừ chính sách phạt:** Lễ tân/Admin hủy lịch phòng khám **KHÔNG** bị giới hạn cửa sổ 48h/24h và **KHÔNG** làm tăng bộ đếm số lần hủy hay kích hoạt khóa đặt lịch của bệnh nhân (`cancelledCount` / `isBookingLocked`). Chính sách khóa 24h chỉ áp dụng riêng cho luồng Bệnh nhân tự hủy (`UC-PAT-06`).
+     - **Chính sách hoàn tiền (Refund Flag):** Hệ thống không tự động hoàn tiền trực tiếp qua API ngân hàng; nếu lịch đã thanh toán thành công (hoặc có giao dịch thanh toán thành công), hệ thống gắn cờ `refundRequired=true` để bộ phận kế toán đối soát xử lý hoàn tiền thủ công.
+  6. **Quy tắc Đổi Lịch (Reschedule):**
+     - Ca trực mới (`DoctorShift`) phải tồn tại, có trạng thái `ACTIVE` (không `CANCELLED` hay `GROUP_BLOCKED`), và phải thuộc cùng bác sĩ phụ trách ca khám cũ (`newShift.doctorId === oldAppointment.doctorId`).
+     - Slot mới phải `AVAILABLE`. Sử dụng conditional atomic update trên slot (`slots.status: 'AVAILABLE'`). Nếu slot đã bị người khác đặt hoặc concurrent conflict -> trả 409 `SLOT_ALREADY_BOOKED` và **KHÔNG THAY ĐỔI BẤT KỲ DỮ LIỆU NÀO**.
+     - Lịch cũ chuyển sang `RESCHEDULED` qua `AppointmentStateService`.
+     - Tạo một `Appointment` mới (với mã `appointmentNo` mới dạng `OFF...`, bảo lưu toàn bộ snapshot bệnh nhân `patients`, hình thức khám `type`, và lý do đổi lịch `reason`).
+     - **Liên kết lịch sử (History Link):** Lịch mới lưu `rescheduledFromId = oldAppointment.id`, và lịch cũ lưu `rescheduledToId = newAppointment.id`.
+     - **Quy tắc State Appointment mới:** Nếu lịch cũ đã ở trạng thái `CONFIRMED` hoặc `CHECKED_IN`, lịch mới tự động ở trạng thái `CONFIRMED` (và lưu `confirmedBy`, `confirmedAt`). Nếu lịch cũ đang ở `PENDING_CONFIRMATION` hoặc `PENDING_PAYMENT`, lịch mới duy trì trạng thái tương ứng.
+     - Giải phóng slot cũ của ca khám cũ (`BOOKED` -> `AVAILABLE`, xóa `bookingRef`).
+     - **Cơ chế Bồi hoàn (Compensation Rollback):** Toàn bộ quy trình được bọc trong khối try/catch bồi hoàn. Nếu xảy ra lỗi giữa chừng (ví dụ: chuyển state lịch cũ lỗi, đứt kết nối DB), hệ thống ngay lập tức hoàn tác slot mới vừa giữ chỗ về `AVAILABLE`, xóa bản ghi appointment mới vừa tạo (nếu có), đảm bảo slot và appointment không bao giờ bị lệch trạng thái.
+  7. **Hậu kiểm & Sự kiện (Post-commit):**
+     - Ghi nhận Transactional Outbox event (`APPOINTMENT_CANCELLED_BY_STAFF` và `APPOINTMENT_RESCHEDULED_BY_STAFF`) để phát thông báo tới bệnh nhân và bác sĩ.
+     - Ghi nhận Audit Log hành động `CANCEL_APPOINTMENT` và `RESCHEDULE_APPOINTMENT`.
+- **Mặc định đã chọn:**
+  - Route:
+    + `PUT /appointments/cancel/:id` (phân quyền `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+    + `PUT /appointments/reschedule/:id` (phân quyền `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+- **Biến env để đổi:** Không cần biến env mới.
+
+
 

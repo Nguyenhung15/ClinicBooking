@@ -29,8 +29,12 @@ router.get(
 router.put(
   '/cancel/:id',
   authenticate,
-  authorize(ROLES.PATIENT),
-  patientAppointmentController.cancelAppointment,
+  (req, res, next) => {
+    if (req.user?.userType !== ROLES.PATIENT) {
+      return next();
+    }
+    return patientAppointmentController.cancelAppointment(req, res, next);
+  },
 );
 
 router.get(

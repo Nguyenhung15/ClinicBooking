@@ -395,10 +395,447 @@ async function checkinAppointment(actor, appointmentId, verificationPayload = {}
   };
 }
 
+/**
+ * UC-REC-05: Receptionist / Admin cancels an appointment.
+ *
+ * Rules:
+ * - Allowed roles: RECEPTIONIST, ADMIN.
+ * - Non-empty `reason` required.
+ * - Only appointments not in terminal states (COMPLETED, CANCELLED, EXPIRED, NO_SHOW).
+ * - If already CANCELLED, idempotent HTTP 200.
+ * - Transition CANCELLED via AppointmentStateService, storing cancelledBy, cancelledAt, cancelReason.
+ * - Release booked slot (BOOKED -> AVAILABLE) in atomic step with matching bookingRef.
+ * - Staff is NOT constrained by 24h/48h window and does NOT increment patient's cancel lock counter.
+ * - If already paid (or payment transaction exists with SUCCESS/00), flag refundRequired = true.
+ * - Post-commit Outbox notification to patient and doctor; Audit log CANCEL_APPOINTMENT.
+ *
+ * @param {object} actor - Authenticated user principal { userId, role, email }
+ * @param {string|number} appointmentId
+ * @param {object} options - { reason }
+ * @returns {Promise<object>}
+ */
+async function cancelAppointmentByStaff(actor, appointmentId, { reason } = {}) {
+  // 1. Role verification
+  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.ADMIN];
+  const actorRole = actor?.role || actor?.userType;
+  if (!actor || !allowedRoles.includes(actorRole)) {
+    throw new ApiError(403, 'Chỉ Lễ tân hoặc Quản trị viên mới có quyền hủy lịch hẹn', 'FORBIDDEN_ROLE');
+  }
+
+  // 2. Validate reason: must be a non-empty string
+  if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+    throw new ApiError(400, 'Lý do hủy lịch hẹn không được để trống', 'REASON_REQUIRED');
+  }
+  const cleanReason = reason.trim();
+
+  // 3. Fetch appointment
+  const query = buildAppointmentQuery(appointmentId);
+  const appointment = await Appointment.findOne(query);
+
+  if (!appointment) {
+    throw new ApiError(404, `Không tìm thấy lịch hẹn với định danh: ${appointmentId}`, 'APPOINTMENT_NOT_FOUND');
+  }
+
+  // 4. Idempotency: if already CANCELLED, return 200 idempotent
+  if (appointment.status === APPOINTMENT_STATUSES.CANCELLED) {
+    return {
+      appointment: appointment.toJSON ? appointment.toJSON() : appointment,
+      status: APPOINTMENT_STATUSES.CANCELLED,
+      idempotent: true,
+      message: 'Lịch hẹn đã được hủy trước đó',
+    };
+  }
+
+  // 5. Terminal state check: cannot cancel COMPLETED, EXPIRED, NO_SHOW
+  const terminalStatuses = [
+    APPOINTMENT_STATUSES.COMPLETED,
+    APPOINTMENT_STATUSES.EXPIRED,
+    APPOINTMENT_STATUSES.NO_SHOW,
+  ];
+  if (terminalStatuses.includes(appointment.status)) {
+    throw new ApiError(
+      409,
+      `Không thể hủy lịch hẹn đã ở trạng thái kết thúc: ${appointment.status}`,
+      'INVALID_STATE',
+    );
+  }
+
+  // 6. Check if payment exists and was successful to flag refundRequired
+  let refundRequired = Boolean(appointment.refundRequired);
+  try {
+    const { PaymentTransaction } = require('../models');
+    if (PaymentTransaction) {
+      const payment = await PaymentTransaction.findOne({
+        appointmentId: appointment.id,
+        $or: [{ responseCode: '00' }, { transactionStatus: '00' }, { transactionStatus: 'SUCCESS' }],
+      }).lean();
+      if (payment) {
+        refundRequired = true;
+      }
+    }
+  } catch (err) {
+    // Non-blocking payment inspection
+  }
+
+  // 7. Atomic slot release: Release booked slot (BOOKED -> AVAILABLE)
+  // ONLY release if slot belongs to this appointment (bookingRef matches appointmentNo)
+  const slotIds = Array.isArray(appointment.slotIds) ? appointment.slotIds : [];
+  if (appointment.shiftId && slotIds.length > 0) {
+    await DoctorShift.updateOne(
+      {
+        id: appointment.shiftId,
+        'slots.bookingRef': appointment.appointmentNo,
+      },
+      {
+        $set: {
+          'slots.$[elem].status': 'AVAILABLE',
+          'slots.$[elem].bookingRef': null,
+          'slots.$[elem].bookedAt': null,
+        },
+      },
+      {
+        arrayFilters: [
+          {
+            'elem.bookingRef': appointment.appointmentNo,
+            'elem.id': { $in: slotIds },
+          },
+        ],
+      },
+    );
+  }
+
+  // 8. Transition appointment state to CANCELLED via AppointmentStateService
+  const cancelledAt = clock.now();
+  const transitionResult = await appointmentStateService.transition({
+    appointmentId: appointment.id,
+    fromStatuses: [
+      APPOINTMENT_STATUSES.PENDING_PAYMENT,
+      APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
+      APPOINTMENT_STATUSES.CONFIRMED,
+      APPOINTMENT_STATUSES.CHECKED_IN,
+    ],
+    toStatus: APPOINTMENT_STATUSES.CANCELLED,
+    actor,
+    extraFields: {
+      cancelReason: cleanReason,
+      cancelledBy: actor.userId || actor.id,
+      cancelledAt,
+      refundRequired,
+    },
+    options: {
+      auditAction: AUDIT_ACTIONS.CANCEL_APPOINTMENT,
+      auditReason: cleanReason,
+      outboxEventType: 'APPOINTMENT_CANCELLED_BY_STAFF',
+      outboxPayload: {
+        appointmentId: appointment.id,
+        appointmentNo: appointment.appointmentNo,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        shiftId: appointment.shiftId,
+        cancelReason: cleanReason,
+        cancelledBy: actor.userId || actor.id,
+        cancelledAt: cancelledAt.toISOString(),
+        refundRequired,
+      },
+    },
+  });
+
+  return {
+    appointment: transitionResult.appointment,
+    status: transitionResult.status,
+    idempotent: transitionResult.idempotent,
+    message: 'Hủy lịch hẹn thành công',
+  };
+}
+
+/**
+ * UC-REC-05: Receptionist / Admin reschedules an appointment.
+ *
+ * Rules:
+ * - Allowed roles: RECEPTIONIST, ADMIN.
+ * - Input: appointmentId, newShiftId (+ optional newSlotId), reason.
+ * - Validate reason: must be non-empty string.
+ * - Validate old appointment: not in terminal states (COMPLETED, CANCELLED, EXPIRED, NO_SHOW).
+ * - Validate new shift: exists, status ACTIVE, matches doctor and valid date.
+ * - Atomic conditional reserve on new slot: if unavailable/taken -> 409 and make NO changes.
+ * - Transition old appointment -> RESCHEDULED.
+ * - Create new appointment with generated appointmentNo, preserving patient snapshot, type, reason.
+ * - Target state of new appointment: CONFIRMED if old status was CONFIRMED or above; otherwise preserve old status.
+ * - Link rescheduledFromId on new appointment and rescheduledToId on old appointment.
+ * - Release old slot from old shift.
+ * - Compensation: if any error occurs midway, rollback newly booked slot back to AVAILABLE.
+ * - Post-commit Outbox notification and Audit log RESCHEDULE_APPOINTMENT.
+ *
+ * @param {object} actor - Authenticated user principal { userId, role, email }
+ * @param {string|number} appointmentId
+ * @param {object} params - { newShiftId, newSlotId, reason }
+ * @returns {Promise<object>}
+ */
+async function rescheduleAppointmentByStaff(
+  actor,
+  appointmentId,
+  { newShiftId, newSlotId, reason } = {},
+) {
+  // 1. Role verification
+  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.ADMIN];
+  const actorRole = actor?.role || actor?.userType;
+  if (!actor || !allowedRoles.includes(actorRole)) {
+    throw new ApiError(403, 'Chỉ Lễ tân hoặc Quản trị viên mới có quyền đổi lịch hẹn', 'FORBIDDEN_ROLE');
+  }
+
+  // 2. Validate reason: non-empty string
+  if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+    throw new ApiError(400, 'Lý do đổi lịch hẹn không được để trống', 'REASON_REQUIRED');
+  }
+  const cleanReason = reason.trim();
+
+  // 3. Validate newShiftId
+  if (!newShiftId) {
+    throw new ApiError(400, 'Vui lòng chọn ca trực mới để dời lịch', 'NEW_SHIFT_REQUIRED');
+  }
+  const targetShiftId = Number(newShiftId);
+  if (!Number.isSafeInteger(targetShiftId) || targetShiftId <= 0) {
+    throw new ApiError(400, 'Mã ca trực mới không hợp lệ', 'INVALID_NEW_SHIFT_ID');
+  }
+
+  // 4. Fetch old appointment
+  const query = buildAppointmentQuery(appointmentId);
+  const oldAppointment = await Appointment.findOne(query);
+
+  if (!oldAppointment) {
+    throw new ApiError(404, `Không tìm thấy lịch hẹn với định danh: ${appointmentId}`, 'APPOINTMENT_NOT_FOUND');
+  }
+
+  // 5. Terminal state check
+  const terminalStatuses = [
+    APPOINTMENT_STATUSES.COMPLETED,
+    APPOINTMENT_STATUSES.CANCELLED,
+    APPOINTMENT_STATUSES.EXPIRED,
+    APPOINTMENT_STATUSES.NO_SHOW,
+    APPOINTMENT_STATUSES.RESCHEDULED,
+  ];
+  if (terminalStatuses.includes(oldAppointment.status)) {
+    throw new ApiError(
+      409,
+      `Không thể đổi lịch hẹn đã ở trạng thái kết thúc: ${oldAppointment.status}`,
+      'INVALID_STATE',
+    );
+  }
+
+  // 6. Validate new shift
+  const newShift = await DoctorShift.findOne({ id: targetShiftId });
+  if (!newShift) {
+    throw new ApiError(404, 'Ca trực mới không tồn tại', 'NEW_SHIFT_NOT_FOUND');
+  }
+  if (newShift.status !== 'ACTIVE') {
+    throw new ApiError(409, 'Ca trực mới không ở trạng thái hoạt động (ACTIVE)', 'SHIFT_NOT_ACTIVE');
+  }
+  if (newShift.doctorId !== oldAppointment.doctorId) {
+    throw new ApiError(409, 'Ca trực mới phải thuộc cùng bác sĩ của lịch hẹn hiện tại', 'DOCTOR_MISMATCH');
+  }
+
+  // 7. Find candidate slot in new shift
+  const slots = Array.isArray(newShift.slots) ? newShift.slots : [];
+  let candidateSlot = null;
+  if (newSlotId !== undefined && newSlotId !== null && String(newSlotId).trim() !== '') {
+    const targetSlotId = Number(newSlotId);
+    candidateSlot = slots.find((s) => s.id === targetSlotId);
+    if (!candidateSlot) {
+      throw new ApiError(404, `Không tìm thấy slot ${newSlotId} trong ca trực mới`, 'SLOT_NOT_FOUND');
+    }
+    if (candidateSlot.status !== 'AVAILABLE') {
+      throw new ApiError(409, 'Slot khám đã được người khác đặt hoặc không khả dụng', 'SLOT_ALREADY_BOOKED');
+    }
+  } else {
+    // Pick first available slot in new shift
+    candidateSlot = slots.find((s) => s.status === 'AVAILABLE');
+    if (!candidateSlot) {
+      throw new ApiError(409, 'Ca trực mới không còn slot trống nào khả dụng', 'NO_AVAILABLE_SLOTS');
+    }
+  }
+
+  // 8. Atomic conditional reservation on new slot
+  const crypto = require('crypto');
+  const tempHoldRef = `HOLD_RESCHED_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const reserveResult = await DoctorShift.updateOne(
+    {
+      id: newShift.id,
+      status: 'ACTIVE',
+      'slots.id': candidateSlot.id,
+      'slots.status': 'AVAILABLE',
+    },
+    {
+      $set: {
+        'slots.$.status': 'BOOKED',
+        'slots.$.bookingRef': tempHoldRef,
+        'slots.$.bookedAt': clock.now(),
+      },
+    },
+  );
+
+  if (reserveResult.modifiedCount !== 1) {
+    throw new ApiError(409, 'Slot khám đã có người đặt trước đó, vui lòng chọn slot khác', 'SLOT_ALREADY_BOOKED');
+  }
+
+  // Step 9: Compensation wrapper for appointment creation & state updates
+  let newAppointment = null;
+  const newAppointmentNo = `OFF${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  
+  // Determine target state for new appointment:
+  // If old appointment was CONFIRMED or CHECKED_IN -> new appointment is CONFIRMED
+  // Otherwise preserve old appointment status (e.g. PENDING_CONFIRMATION / PENDING_PAYMENT)
+  let newStatus = APPOINTMENT_STATUSES.PENDING_CONFIRMATION;
+  if (
+    oldAppointment.status === APPOINTMENT_STATUSES.CONFIRMED ||
+    oldAppointment.status === APPOINTMENT_STATUSES.CHECKED_IN
+  ) {
+    newStatus = APPOINTMENT_STATUSES.CONFIRMED;
+  } else if (oldAppointment.status === APPOINTMENT_STATUSES.PENDING_PAYMENT) {
+    newStatus = APPOINTMENT_STATUSES.PENDING_PAYMENT;
+  }
+
+  try {
+    // 9.1 Create new appointment
+    newAppointment = await Appointment.create({
+      appointmentNo: newAppointmentNo,
+      patientId: oldAppointment.patientId,
+      doctorId: oldAppointment.doctorId,
+      specialtyId: oldAppointment.specialtyId,
+      shiftId: newShift.id,
+      slotIds: [candidateSlot.id],
+      appointmentDate: newShift.date,
+      appointmentTime: candidateSlot.startTime,
+      type: oldAppointment.type || 'OFFLINE',
+      status: newStatus,
+      reason: cleanReason,
+      patients: oldAppointment.patients || [],
+      rescheduledFromId: oldAppointment.id,
+      confirmedBy: newStatus === APPOINTMENT_STATUSES.CONFIRMED ? (actor.userId || actor.id) : null,
+      confirmedAt: newStatus === APPOINTMENT_STATUSES.CONFIRMED ? clock.now() : null,
+    });
+
+    // 9.2 Bind new appointmentNo to the newly reserved slot
+    await DoctorShift.updateOne(
+      {
+        id: newShift.id,
+        'slots.id': candidateSlot.id,
+        'slots.bookingRef': tempHoldRef,
+      },
+      {
+        $set: {
+          'slots.$.bookingRef': newAppointment.appointmentNo,
+        },
+      },
+    );
+
+    // 9.3 Transition old appointment to RESCHEDULED via AppointmentStateService
+    await appointmentStateService.transition({
+      appointmentId: oldAppointment.id,
+      fromStatuses: [
+        APPOINTMENT_STATUSES.PENDING_PAYMENT,
+        APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
+        APPOINTMENT_STATUSES.CONFIRMED,
+        APPOINTMENT_STATUSES.CHECKED_IN,
+      ],
+      toStatus: APPOINTMENT_STATUSES.RESCHEDULED,
+      actor,
+      extraFields: {
+        rescheduledToId: newAppointment.id,
+      },
+      options: {
+        auditAction: AUDIT_ACTIONS.RESCHEDULE_APPOINTMENT,
+        auditReason: cleanReason,
+      },
+    });
+
+    // 9.4 Release old slot from old shift (only if slot belongs to this old appointment)
+    const oldSlotIds = Array.isArray(oldAppointment.slotIds) ? oldAppointment.slotIds : [];
+    if (oldAppointment.shiftId && oldSlotIds.length > 0) {
+      await DoctorShift.updateOne(
+        {
+          id: oldAppointment.shiftId,
+          'slots.bookingRef': oldAppointment.appointmentNo,
+        },
+        {
+          $set: {
+            'slots.$[elem].status': 'AVAILABLE',
+            'slots.$[elem].bookingRef': null,
+            'slots.$[elem].bookedAt': null,
+          },
+        },
+        {
+          arrayFilters: [
+            {
+              'elem.bookingRef': oldAppointment.appointmentNo,
+              'elem.id': { $in: oldSlotIds },
+            },
+          ],
+        },
+      );
+    }
+
+    // 9.5 Outbox event after commit
+    const outboxService = require('./outbox.service');
+    await outboxService.recordEvent({
+      eventType: 'APPOINTMENT_RESCHEDULED_BY_STAFF',
+      payload: {
+        oldAppointmentId: oldAppointment.id,
+        oldAppointmentNo: oldAppointment.appointmentNo,
+        newAppointmentId: newAppointment.id,
+        newAppointmentNo: newAppointment.appointmentNo,
+        patientId: oldAppointment.patientId,
+        doctorId: oldAppointment.doctorId,
+        newShiftId: newShift.id,
+        newDate: newShift.date,
+        newTime: candidateSlot.startTime,
+        rescheduledBy: actor.userId || actor.id,
+        reason: cleanReason,
+      },
+    });
+
+  } catch (err) {
+    // COMPENSATION ROLLBACK: Revert the reserved slot back to AVAILABLE
+    try {
+      await DoctorShift.updateOne(
+        {
+          id: newShift.id,
+          'slots.id': candidateSlot.id,
+          'slots.bookingRef': { $in: [tempHoldRef, newAppointmentNo] },
+        },
+        {
+          $set: {
+            'slots.$.status': 'AVAILABLE',
+            'slots.$.bookingRef': null,
+            'slots.$.bookedAt': null,
+          },
+        },
+      );
+      // Clean up new appointment document if it was created
+      if (newAppointment && newAppointment._id) {
+        await Appointment.deleteOne({ _id: newAppointment._id });
+      }
+    } catch (compensationErr) {
+      console.error('Lỗi khi thực hiện bồi hoàn compensation slot:', compensationErr);
+    }
+    throw err;
+  }
+
+  return {
+    appointment: newAppointment.toJSON ? newAppointment.toJSON() : newAppointment,
+    status: newAppointment.status,
+    oldAppointmentId: oldAppointment.id,
+    newAppointmentId: newAppointment.id,
+    message: 'Đổi lịch hẹn thành công',
+  };
+}
+
 module.exports = {
   buildAppointmentQuery,
   isAppointmentExpired,
   confirmAppointment,
   checkinAppointment,
+  cancelAppointmentByStaff,
+  rescheduleAppointmentByStaff,
 };
+
 

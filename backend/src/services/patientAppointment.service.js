@@ -890,12 +890,16 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
   }
 
   // 8. Enforce 3-cancellation booking lock policy for 24 hours (BR-03, A6)
-  // TODO (Future Scope): When Receptionist/Admin cancellation Use Cases are implemented,
-  // cancellation records must distinguish who initiated the cancellation (e.g. cancelledBy / cancelledByRole)
-  // so that cancellations caused by clinic staff are not counted against the Patient.
+  // Only cancellations initiated by the Patient count against their lock threshold.
+  // Cancellations initiated by clinic staff (Receptionist/Admin) do not penalize the Patient.
   const totalCancelled = await Appointment.countDocuments({
     patientId: user.id,
     status: APPOINTMENT_STATUSES.CANCELLED,
+    $or: [
+      { cancelledBy: null },
+      { cancelledBy: user.id },
+      { cancelledBy: String(user.id) },
+    ],
   });
 
   const lockThreshold = env.cancelLockThreshold || 3;

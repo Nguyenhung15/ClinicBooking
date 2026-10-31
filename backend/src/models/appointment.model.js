@@ -107,6 +107,25 @@ const appointmentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    cancelledBy: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
+    refundRequired: {
+      type: Boolean,
+      default: false,
+    },
+    rescheduledFromId: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
+    rescheduledToId: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
     joinCode: {
       type: String,
       default: null,
