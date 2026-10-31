@@ -8,10 +8,32 @@ const app = express();
 
 // Native mobile apps send no Origin header, so requests without one are allowed.
 // `credentials: true` is required because Frontend OAuth2/logout uses `credentials: 'include'`.
+const isAllowedDevOrigin = (origin) => {
+  if (!origin) return true;
+  if (env.corsOrigins.includes(origin)) return true;
+  if (!env.isProduction) {
+    try {
+      const { hostname } = new URL(origin);
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        /^10\./.test(hostname) ||
+        /^192\.168\./.test(hostname) ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+      ) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || env.corsOrigins.includes(origin)) return callback(null, true);
+      if (isAllowedDevOrigin(origin)) return callback(null, true);
       return callback(new Error(`Origin not allowed by CORS: ${origin}`));
     },
     credentials: true,
