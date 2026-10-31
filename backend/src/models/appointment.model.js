@@ -78,9 +78,13 @@ const appointmentSchema = new mongoose.Schema(
       default: false,
     },
     confirmedBy: {
-      type: Number,
+      type: mongoose.Schema.Types.Mixed,
       default: null,
       index: true,
+    },
+    confirmedAt: {
+      type: Date,
+      default: null,
     },
     reason: {
       type: String,

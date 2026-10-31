@@ -103,20 +103,46 @@ class AppointmentStateService {
    * @returns {Promise<{ appointment: object, changed: boolean, idempotent: boolean }>}
    */
   async transition(
-    appointmentId,
+    appointmentIdOrParams,
     fromStatuses,
     toStatus,
     actor,
     extraFields = {},
     options = {},
   ) {
+    let appointmentId = appointmentIdOrParams;
+    let actualFromStatuses = fromStatuses;
+    let actualToStatus = toStatus;
+    let actualActor = actor;
+    let actualExtraFields = extraFields;
+    let actualOptions = options;
+
+    if (
+      appointmentIdOrParams &&
+      typeof appointmentIdOrParams === 'object' &&
+      !Array.isArray(appointmentIdOrParams) &&
+      appointmentIdOrParams.appointmentId !== undefined
+    ) {
+      appointmentId = appointmentIdOrParams.appointmentId;
+      actualFromStatuses = appointmentIdOrParams.fromStatuses || appointmentIdOrParams.fromStatus;
+      actualToStatus = appointmentIdOrParams.toStatus;
+      actualActor = appointmentIdOrParams.actor;
+      actualExtraFields = appointmentIdOrParams.extraFields || {};
+      actualOptions = appointmentIdOrParams.options || {};
+    }
+
+    toStatus = actualToStatus;
+    actor = actualActor;
+    extraFields = actualExtraFields;
+    options = actualOptions;
+
     if (!toStatus || !Object.values(APPOINTMENT_STATUSES).includes(toStatus)) {
       throw new ApiError(400, `Trạng thái đích không hợp lệ: ${toStatus}`, 'INVALID_TARGET_STATUS');
     }
 
-    const fromList = Array.isArray(fromStatuses)
-      ? fromStatuses.filter(Boolean)
-      : [fromStatuses].filter(Boolean);
+    const fromList = Array.isArray(actualFromStatuses)
+      ? actualFromStatuses.filter(Boolean)
+      : [actualFromStatuses].filter(Boolean);
 
     if (fromList.length === 0) {
       throw new ApiError(400, 'Danh sách trạng thái hợp lệ nguồn (fromStatuses) không được để trống', 'EMPTY_FROM_STATUSES');
@@ -156,7 +182,7 @@ class AppointmentStateService {
       throw new ApiError(
         409,
         `Lịch hẹn đang ở trạng thái '${existing.status}', không thuộc các trạng thái cho phép [${fromList.join(', ')}] để chuyển sang '${toStatus}'`,
-        'STATE_CONFLICT',
+        'INVALID_STATE',
       );
     }
 
@@ -175,8 +201,11 @@ class AppointmentStateService {
     };
 
     // State-specific automatic field population
-    if (toStatus === APPOINTMENT_STATUSES.CONFIRMED && actor?.userId) {
-      updateSet.confirmedBy = Number(actor.userId) || actor.userId;
+    if (toStatus === APPOINTMENT_STATUSES.CONFIRMED) {
+      updateSet.confirmedAt = nowUtc;
+      if (actor?.userId) {
+        updateSet.confirmedBy = Number(actor.userId) || actor.userId;
+      }
     }
     if (toStatus === APPOINTMENT_STATUSES.CHECKED_IN) {
       updateSet.checkedIn = true;
@@ -244,7 +273,7 @@ class AppointmentStateService {
       try {
         await auditService.log({
           actor: actorInfo,
-          action: AUDIT_ACTIONS.APPOINTMENT_STATUS_CHANGE || 'APPOINTMENT_STATUS_CHANGE',
+          action: options.auditAction || AUDIT_ACTIONS.APPOINTMENT_STATUS_CHANGE || 'APPOINTMENT_STATUS_CHANGE',
           resource: {
             type: 'Appointment',
             id: String(updated.id || updated._id),
@@ -266,7 +295,8 @@ class AppointmentStateService {
     if (!options.skipOutbox) {
       try {
         await outboxService.recordEvent({
-          eventType: `APPOINTMENT_${toStatus}`,
+          eventType: options.outboxEventType || `APPOINTMENT_${toStatus}`,
+          channel: options.outboxChannel || 'ALL',
           payload: {
             appointmentId: updated.id || String(updated._id),
             appointmentNo: updated.appointmentNo,
@@ -276,6 +306,7 @@ class AppointmentStateService {
             newStatus: toStatus,
             actor: actorInfo,
             timestamp: nowUtc.toISOString(),
+            ...(options.outboxPayload || {}),
           },
           session,
         });
