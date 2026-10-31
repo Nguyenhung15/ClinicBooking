@@ -231,6 +231,39 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
 - **Lý do:** Đảm bảo bảo vệ quyền lợi của bệnh nhân đã đặt lịch trước khi bác sĩ được phép hủy ca, tránh triệt để tình trạng bỏ rơi bệnh nhân đến khám, hỗ trợ đầy đủ cả 2 chế độ xử lý linh hoạt và kiểm soát phân quyền chặt chẽ.
 - **Biến env để đổi:** `SHIFT_CANCEL_POLICY=BLOCK_UNTIL_RESOLVED` (hoặc `AUTO_CANCEL_AFFECTED`).
 
+---
 
+## 13. Thiết kế Nghiệp vụ UC-REC-07: Lễ tân xác nhận người tham dự event (Event Attendance Confirmation)
 
-
+- **Vấn đề & Bối cảnh:**
+  1. Phòng khám tổ chức các sự kiện y tế/tri ân khách hàng (`Event`). Người dùng (Bệnh nhân) đăng ký tham gia sự kiện trước (`EventRegistration` có `status: 'PENDING'`).
+  2. Khi người tham dự đến sự kiện, Lễ tân hoặc Quản trị viên thực hiện check-in/xác nhận tham gia tại quầy.
+  3. Nếu sự kiện có gắn mã quà tặng (`voucherId`), hệ thống tự động cấp `UserVoucher` cho người tham dự.
+- **Quy tắc Nghiệp vụ Chi tiết:**
+  1. **Endpoint & Nhóm định tuyến:**
+     - Bảo toàn nhóm route `/reception/events/*` theo thiết kế Frontend:
+       + `GET /reception/events`: Lấy danh sách sự kiện kèm mảng người đăng ký `registrations[]`.
+       + `POST /reception/events/:eventId/confirm/:userId`: Xác nhận người tham dự theo `eventId` và `userId`.
+  2. **Phân quyền (RBAC):**
+     - Chỉ cho phép `ROLES.RECEPTIONIST` và `ROLES.ADMIN`. Các vai trò khác (`Patient`, `Doctor`) bị chặn với HTTP 403 `FORBIDDEN_ROLE`.
+  3. **Truy vấn & Đảm bảo toàn vẹn dữ liệu:**
+     - Tìm kiếm đăng ký theo cặp khóa `eventId` + `userId`.
+     - Không tìm thấy đăng ký -> HTTP 404 `REGISTRATION_NOT_FOUND` (hoặc `EVENT_NOT_FOUND` nếu không tìm thấy sự kiện).
+     - Đảm bảo unique index compound `{ eventId: 1, userId: 1 }` trên collection `event_registrations` để ngăn chặn hoàn toàn việc tạo trùng bản ghi đăng ký.
+  4. **Chính sách Trạng thái Sự kiện (Event Status & Expiry Policy):**
+     - **Sự kiện đã bị đóng/tắt kích hoạt (`isEnabled: false`):** Trả về HTTP 409 `EVENT_CLOSED`, từ chối check-in.
+     - **Sự kiện đã hết hạn (`endDate < clock.now()`):** Trả về HTTP 409 `EVENT_EXPIRED`, từ chối check-in.
+  5. **Chuyển đổi trạng thái nguyên tử (Conditional Update) & Tính Idempotency:**
+     - Chỉ chuyển đổi trạng thái khi đăng ký ở `status: 'PENDING'` bằng conditional atomic update: `{ _id, status: 'PENDING' }`.
+     - Cập nhật `status = 'CONFIRMED'`, `confirmedBy = userId` (lấy trực tiếp từ JWT payload của actor), `confirmedAt = clock.now()` (UTC Date).
+     - **Xử lý lặp (Idempotent):** Nếu đăng ký đã ở trạng thái `CONFIRMED`, hệ thống trả về HTTP 200 kèm dữ liệu hiện hành và cờ `idempotent: true`, không báo lỗi và không cấp trùng voucher.
+  6. **Cấp Voucher Tự động (Automatic Voucher Issuance):**
+     - Nếu sự kiện có `voucherId` và voucher đó còn hiệu lực (`enable: true`), hệ thống kiểm tra và tự động tạo bản ghi `UserVoucher` (`{ voucherId, userId, voucherCode, voucherName, discountValue, type, expiryDate, issuedAt, used: false }`).
+     - Chống cấp trùng voucher nếu người dùng đã có voucher của sự kiện đó.
+  7. **Kiểm toán (Audit Trail):**
+     - Ghi nhận `AuditLog` với action `CONFIRM_EVENT_ATTENDANCE`, lưu trữ định danh nhân viên thực hiện, thông tin người tham dự và sự kiện.
+- **Mặc định đã chọn:**
+  - Route: `POST /reception/events/:eventId/confirm/:userId`
+  - Unique index: `{ eventId: 1, userId: 1 }` trên `event_registrations`.
+  - Expiry Policy: Kiểm tra `isEnabled` và `endDate` so với `clock.now()`.
+- **Lý do:** Đáp ứng chính xác giao diện quản lý sự kiện của Lễ tân, bảo toàn RBAC, chống xung đột song song (concurrency-safe), và đảm bảo tính idempotent tuyệt đối khi thao tác nhiều lần.
