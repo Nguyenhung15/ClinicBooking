@@ -145,18 +145,12 @@ describe('UC-PAT-06: Cancel Appointment – Hủy lịch khám (/appointments/ca
     assert.strictEqual(res.status, 401);
   });
 
-  it('2. Trả về 403 Forbidden khi người gọi không phải role Patient (Doctor, Receptionist)', async () => {
+  it('2. Trả về 403 Forbidden khi người gọi không có quyền hủy lịch (Doctor)', async () => {
     const resDoc = await apiRequest('PUT', '/appointments/cancel/100', {
       token: doctor1Token,
       body: { reason: 'Bác sĩ hủy' },
     });
     assert.strictEqual(resDoc.status, 403);
-
-    const resRec = await apiRequest('PUT', '/appointments/cancel/100', {
-      token: receptionist1Token,
-      body: { reason: 'Lễ tân hủy' },
-    });
-    assert.strictEqual(resRec.status, 403);
   });
 
   it('3. Main Flow: Patient hủy thành công lịch hẹn cách xa hơn 24 giờ (> 24h)', async () => {
