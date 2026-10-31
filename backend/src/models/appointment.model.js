@@ -77,6 +77,15 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    checkedInAt: {
+      type: Date,
+      default: null,
+    },
+    checkedInBy: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      index: true,
+    },
     confirmedBy: {
       type: mongoose.Schema.Types.Mixed,
       default: null,

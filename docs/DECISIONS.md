@@ -136,3 +136,30 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
 - **Lý do:** Đảm bảo toàn vẹn dữ liệu, tính nhất quán trạng thái và trải nghiệm mượt mà cho nhân viên tiếp đón phòng khám mà không ảnh hưởng tới bất kỳ use case nào khác.
 - **Biến env để đổi:** Không cần biến env mới.
 
+---
+
+## 10. Thiết kế Nghiệp vụ UC-REC-04: Check-in Bệnh nhân (Check-in Appointment)
+
+- **Vấn đề:**
+  1. Frontend gọi check-in bệnh nhân qua endpoint `PUT /appointments/checkin/:id` (`web/src/api/appointment.ts`). Cần giữ nguyên method và path.
+  2. Quyền thực thi chỉ dành cho `RECEPTIONIST` và `ADMIN`.
+  3. Lịch chỉ được chuyển từ `CONFIRMED` -> `CHECKED_IN` qua `AppointmentStateService`.
+  4. Cần bổ sung các trường schema mới: `checkedInAt: Date` (UTC) và `checkedInBy: Mixed` (hỗ trợ Number ID cũ và String ObjectId mới) vì hệ thống Java/MySQL cũ chưa lưu trữ 2 thông tin này.
+  5. Kiểm tra ngày và cửa sổ giờ check-in:
+     - Phải đúng ngày khám theo múi giờ phòng khám (`CLINIC_TIMEZONE`). Khác ngày: trả 409 (`CHECKIN_TOO_EARLY` hoặc `CHECKIN_WINDOW_CLOSED`).
+     - Trong ngày khám: cửa sổ mở từ `CHECKIN_EARLY_MINUTES` (mặc định 60 phút) trước giờ slot khám đến hết giờ ca trực (`shift.endTime`). Ngoài cửa sổ: trả 409 (`CHECKIN_TOO_EARLY` hoặc `CHECKIN_WINDOW_CLOSED`).
+  6. Xác minh người đến khám:
+     - Request có thể nhận `verifyPhoneLast4` (4 số cuối điện thoại bệnh nhân) hoặc `identityVerified=true` (xác nhận thẻ BHYT / CCCD trực tiếp tại quầy).
+     - Nếu truyền `verifyPhoneLast4`, hệ thống đối chiếu 4 số cuối với số điện thoại trong snapshot bệnh nhân của lịch hẹn (`appointment.patients[].phoneNumber`) hoặc tài khoản bệnh nhân (`user.phoneNumber`). Nếu không khớp: trả 409 `IDENTITY_VERIFICATION_FAILED`.
+     - Nếu gửi thiếu cả hai hoặc `identityVerified=false` mà không có SĐT: trả 400 `MISSING_VERIFICATION_INFO`. Để tương thích tối đa với nút bấm nhanh trên giao diện hiện hữu của lễ tân (`handleCheckin(id)` gửi body rỗng), hệ thống tự động coi đây là `identityVerified=true` (xác minh trực tiếp tại quầy).
+  7. Lịch đã `CHECKED_IN`: trả state hiện tại kèm HTTP 200 (idempotent, không tạo side-effect lặp lại).
+  8. Lịch ở sai trạng thái (`PENDING_CONFIRMATION`, `CANCELLED`, `COMPLETED`...): trả 409 `INVALID_STATE`.
+  9. Sau commit: ghi outbox event `DOCTOR_PATIENT_CHECKED_IN` thông báo cho bác sĩ phụ trách ca khám.
+  10. Ghi Audit Log hành động `CHECKIN`.
+- **Mặc định đã chọn:**
+  - Route: `PUT /appointments/checkin/:id` (được bảo vệ bởi `requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)`).
+  - Cấu hình cửa sổ check-in: `CHECKIN_EARLY_MINUTES=60` (quản lý qua `ConfigService`).
+- **Lý do:** Đáp ứng đầy đủ quy trình tiếp đón thực tế của phòng khám, ngăn chặn việc check-in nhầm ca/nhầm ngày, hỗ trợ đa dạng phương thức xác minh danh tính và đảm bảo khả năng mở rộng.
+- **Biến env để đổi:** `CHECKIN_EARLY_MINUTES=60`.
+
+
