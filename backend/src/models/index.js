@@ -15,6 +15,10 @@ const News = require('./news.model');
 const BootstrapState = require('./bootstrapState.model');
 const PatientProfile = require('./patientProfile.model');
 const OutboxEvent = require('./outboxEvent.model');
+const Voucher = require('./voucher.model');
+const UserVoucher = require('./userVoucher.model');
+const Event = require('./event.model');
+const UserEvent = require('./userEvent.model');
 
 module.exports = {
   Counter,
@@ -36,5 +40,9 @@ module.exports = {
   BootstrapState,
   PatientProfile,
   OutboxEvent,
+  Voucher,
+  UserVoucher,
+  Event,
+  UserEvent,
 };
 

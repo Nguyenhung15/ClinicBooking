@@ -17,6 +17,9 @@ const doctorPrescriptionRoutes = require('./doctorPrescription.routes');
 const doctorGroupHealthRoutes = require('./doctorGroupHealth.routes');
 const rssNewsRoutes = require('./rssNews.routes');
 const patientProfileRoutes = require('./patientProfile.routes');
+const voucherRoutes = require('./voucher.routes');
+const eventRoutes = require('./event.routes');
+const receptionEventRoutes = require('./receptionEvent.routes');
 
 const router = Router();
 
@@ -39,5 +42,8 @@ router.use('/prescriptions', doctorPrescriptionRoutes);
 router.use('/group-health', doctorGroupHealthRoutes);
 router.use('/rss-sources', rssNewsRoutes);
 router.use('/patients-info', patientProfileRoutes);
+router.use('/vouchers', voucherRoutes);
+router.use('/events', eventRoutes);
+router.use('/reception', receptionEventRoutes);
 
 module.exports = router;

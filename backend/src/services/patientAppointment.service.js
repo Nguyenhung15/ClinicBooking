@@ -6,12 +6,14 @@ const {
   Specialty,
   PatientProfile,
   Prescription,
+  UserVoucher,
 } = require('../models');
 const { ROLES, APPOINTMENT_STATUSES, AUDIT_ACTIONS } = require('../constants/enums');
 const { recordAudit } = require('./audit.service');
 const ApiError = require('../utils/ApiError');
 const { parsePositiveInt, normalizeGender } = require('../utils/normalizers');
 const patientProfileService = require('./patientProfile.service');
+const voucherService = require('./voucher.service');
 const env = require('../config/env');
 
 const getTodayString = () => {
@@ -242,6 +244,24 @@ async function bookAppointment(user, query = {}, body = {}) {
   const reason =
     typeof body.appointment?.reason === 'string' ? body.appointment.reason.trim() : null;
 
+  // 7.5. Calculate fee and validate/consume optional voucher before holding slots
+  const baseFeePerPatient = 200000;
+  const onlineSurchargePerPatient = appointmentType === 'ONLINE' ? 50000 : 0;
+  const totalAmount = (baseFeePerPatient + onlineSurchargePerPatient) * requestedSlotsCount;
+
+  const requestedVoucherId = body.voucherId ?? body.appointment?.voucherId ?? null;
+  const requestedVoucherCode = body.voucherCode ?? body.appointment?.voucherCode ?? null;
+
+  let consumedVoucherInfo = null;
+  if (requestedVoucherId || requestedVoucherCode) {
+    consumedVoucherInfo = await voucherService.consumeVoucherForBooking({
+      userId: user.id,
+      voucherId: requestedVoucherId,
+      voucherCode: requestedVoucherCode,
+      totalAmount,
+    });
+  }
+
   // 8. Atomic slot reservation loop (max 3 retries on concurrency collision)
   let reservedSlotIds = [];
   let firstSlotTime = null;
@@ -250,68 +270,75 @@ async function bookAppointment(user, query = {}, body = {}) {
   const now = new Date();
 
   const MAX_ATTEMPTS = 5;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const currentShift = await DoctorShift.findOne({ id: shift.id, status: 'ACTIVE' }).lean();
-    if (!currentShift) {
-      throw new ApiError(400, 'Ca trực không còn khả dụng hoặc đã bị hủy');
-    }
+  try {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      const currentShift = await DoctorShift.findOne({ id: shift.id, status: 'ACTIVE' }).lean();
+      if (!currentShift) {
+        throw new ApiError(400, 'Ca trực không còn khả dụng hoặc đã bị hủy');
+      }
 
-    const rawSlots = Array.isArray(currentShift.slots) ? currentShift.slots : [];
-    // Only slots AVAILABLE and (if today) start time strictly in future
-    const availableSlots = rawSlots.filter((slot) => {
-      if (slot.status !== 'AVAILABLE') return false;
-      if (shift.date === today && slot.startTime <= currentTime) return false;
-      return true;
-    });
+      const rawSlots = Array.isArray(currentShift.slots) ? currentShift.slots : [];
+      // Only slots AVAILABLE and (if today) start time strictly in future
+      const availableSlots = rawSlots.filter((slot) => {
+        if (slot.status !== 'AVAILABLE') return false;
+        if (shift.date === today && slot.startTime <= currentTime) return false;
+        return true;
+      });
 
-    if (availableSlots.length < requestedSlotsCount) {
-      throw new ApiError(
-        409,
-        `Ca trực không đủ chỗ trống (cần ${requestedSlotsCount} slot, hiện còn ${availableSlots.length} slot khả dụng)`,
-      );
-    }
+      if (availableSlots.length < requestedSlotsCount) {
+        throw new ApiError(
+          409,
+          `Ca trực không đủ chỗ trống (cần ${requestedSlotsCount} slot, hiện còn ${availableSlots.length} slot khả dụng)`,
+        );
+      }
 
-    const candidateSlots = availableSlots.slice(0, requestedSlotsCount);
-    const candidateIds = candidateSlots.map((s) => s.id);
+      const candidateSlots = availableSlots.slice(0, requestedSlotsCount);
+      const candidateIds = candidateSlots.map((s) => s.id);
 
-    // Atomic update on single document: verify ALL selected slots are still AVAILABLE
-    const updateResult = await DoctorShift.updateOne(
-      {
-        id: shift.id,
-        status: 'ACTIVE',
-        slots: {
-          $all: candidateIds.map((sid) => ({
-            $elemMatch: { id: sid, status: 'AVAILABLE' },
-          })),
+      // Atomic update on single document: verify ALL selected slots are still AVAILABLE
+      const updateResult = await DoctorShift.updateOne(
+        {
+          id: shift.id,
+          status: 'ACTIVE',
+          slots: {
+            $all: candidateIds.map((sid) => ({
+              $elemMatch: { id: sid, status: 'AVAILABLE' },
+            })),
+          },
         },
-      },
-      {
-        $set: {
-          'slots.$[elem].status': 'BOOKED',
-          'slots.$[elem].bookingRef': holdToken,
-          'slots.$[elem].bookedAt': now,
+        {
+          $set: {
+            'slots.$[elem].status': 'BOOKED',
+            'slots.$[elem].bookingRef': holdToken,
+            'slots.$[elem].bookedAt': now,
+          },
         },
-      },
-      {
-        arrayFilters: [{ 'elem.id': { $in: candidateIds } }],
-      },
-    );
-
-    if (updateResult.modifiedCount === 1) {
-      reservedSlotIds = candidateIds;
-      firstSlotTime = candidateSlots[0].startTime;
-      reservationHeld = true;
-      break;
-    }
-
-    // modifiedCount === 0 means race condition (another request took one of candidateIds)
-    await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 15) + 5));
-    if (attempt === MAX_ATTEMPTS) {
-      throw new ApiError(
-        409,
-        'Không thể giữ chỗ do có lượt đặt khác diễn ra đồng thời, vui lòng thử lại',
+        {
+          arrayFilters: [{ 'elem.id': { $in: candidateIds } }],
+        },
       );
+
+      if (updateResult.modifiedCount === 1) {
+        reservedSlotIds = candidateIds;
+        firstSlotTime = candidateSlots[0].startTime;
+        reservationHeld = true;
+        break;
+      }
+
+      // modifiedCount === 0 means race condition (another request took one of candidateIds)
+      await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 15) + 5));
+      if (attempt === MAX_ATTEMPTS) {
+        throw new ApiError(
+          409,
+          'Không thể giữ chỗ do có lượt đặt khác diễn ra đồng thời, vui lòng thử lại',
+        );
+      }
     }
+  } catch (slotReserveErr) {
+    if (consumedVoucherInfo?.userVoucher?.id) {
+      await voucherService.releaseConsumedUserVoucher(consumedVoucherInfo.userVoucher.id);
+    }
+    throw slotReserveErr;
   }
 
   // 9. Create Appointment record with retry on unique appointmentNo (max 3 times)
@@ -334,6 +361,12 @@ async function bookAppointment(user, query = {}, body = {}) {
         status: 'PENDING_CONFIRMATION',
         reason,
         patients: snapshotPatients,
+        voucherId: consumedVoucherInfo?.voucher?.id ?? null,
+        voucherCode: consumedVoucherInfo?.voucher?.code ?? null,
+        userVoucherId: consumedVoucherInfo?.userVoucher?.id ?? null,
+        discountAmount: consumedVoucherInfo?.discountAmount ?? 0,
+        originalAmount: totalAmount,
+        finalAmount: consumedVoucherInfo ? consumedVoucherInfo.finalAmount : totalAmount,
       });
       break;
     } catch (err) {
@@ -347,6 +380,9 @@ async function bookAppointment(user, query = {}, body = {}) {
 
   // Compensate / Rollback slots ONLY IF Appointment was NOT created
   if (!appointment) {
+    if (consumedVoucherInfo?.userVoucher?.id) {
+      await voucherService.releaseConsumedUserVoucher(consumedVoucherInfo.userVoucher.id);
+    }
     if (reservationHeld) {
       try {
         await DoctorShift.updateOne(
@@ -386,6 +422,18 @@ async function bookAppointment(user, query = {}, body = {}) {
   } catch (updateRefErr) {
     // Log failure, but do NOT fail or rollback appointment; reconciliation handles via slotIds
     console.error('Failed to update slot bookingRef to appointmentNo:', updateRefErr);
+  }
+
+  // Link appointmentId onto consumed UserVoucher (best-effort)
+  if (consumedVoucherInfo?.userVoucher?.id) {
+    try {
+      await UserVoucher.updateOne(
+        { id: consumedVoucherInfo.userVoucher.id },
+        { $set: { appointmentId: appointment.id } },
+      );
+    } catch (linkVoucherErr) {
+      console.error('Failed to link appointmentId to userVoucher:', linkVoucherErr);
+    }
   }
 
   // 10. Best-effort auto-save new patient profiles (failures will not roll back appointment)
@@ -439,6 +487,11 @@ async function bookAppointment(user, query = {}, body = {}) {
     specialtyName: specialty.name,
     reason: appointment.reason,
     patients: appointment.patients,
+    voucherId: appointment.voucherId ?? undefined,
+    voucherCode: appointment.voucherCode ?? undefined,
+    discountAmount: appointment.discountAmount ?? 0,
+    originalAmount: appointment.originalAmount ?? totalAmount,
+    finalAmount: appointment.finalAmount ?? totalAmount,
   };
 }
 
@@ -535,6 +588,11 @@ function serializePatientAppointment(
     shiftId: appointment.shiftId,
     reason: appointment.reason || undefined,
     type: appointment.type || 'OFFLINE',
+    voucherId: appointment.voucherId || undefined,
+    voucherCode: appointment.voucherCode || undefined,
+    discountAmount: appointment.discountAmount || undefined,
+    originalAmount: appointment.originalAmount || undefined,
+    finalAmount: appointment.finalAmount || undefined,
     patients: (appointment.patients || []).map((p) => ({
       id: p.id,
       fullName: p.fullName,
@@ -887,6 +945,11 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
       );
       throw new ApiError(500, 'Không thể giải phóng khung giờ khám, thao tác hủy đã được hoàn tác');
     }
+  }
+
+  // 7.5. Refund/restore consumed UserVoucher if appointment had one
+  if (appointment.userVoucherId) {
+    await voucherService.releaseConsumedUserVoucher(appointment.userVoucherId);
   }
 
   // 8. Enforce 3-cancellation booking lock policy for 24 hours (BR-03, A6)
